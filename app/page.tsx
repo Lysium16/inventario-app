@@ -17,6 +17,36 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
+function formatInt(n: number) {
+  return new Intl.NumberFormat("it-IT").format(n);
+}
+
+function statoArticolo(scatole: number) {
+  if (scatole <= 2) {
+    return {
+      label: "Critico",
+      pill: "bg-red-100 text-red-700 border-red-200",
+    };
+  }
+  if (scatole <= 9) {
+    return {
+      label: "Basso",
+      pill: "bg-orange-100 text-orange-800 border-orange-200",
+    };
+  }
+  return {
+    label: "OK",
+    pill: "bg-green-100 text-green-800 border-green-200",
+  };
+}
+
+function priority(scatole: number) {
+  // più piccolo = più urgente
+  if (scatole <= 2) return 0;
+  if (scatole <= 9) return 1;
+  return 2;
+}
+
 export default function Home() {
   const [loading, setLoading] = useState(true);
   const [articoli, setArticoli] = useState<Articolo[]>([]);
@@ -32,6 +62,9 @@ export default function Home() {
   const [selected, setSelected] = useState<Articolo | null>(null);
   const [delta, setDelta] = useState("");
 
+  // feedback
+  const [flash, setFlash] = useState<null | "green" | "red">(null);
+
   async function loadArticoli() {
     setLoading(true);
     const { data, error } = await supabase
@@ -42,11 +75,13 @@ export default function Home() {
     if (error) {
       alert(error.message);
       setLoading(false);
-      return;
+      return [];
     }
 
-    setArticoli(data || []);
+    const list = (data || []) as Articolo[];
+    setArticoli(list);
     setLoading(false);
+    return list;
   }
 
   useEffect(() => {
@@ -55,18 +90,25 @@ export default function Home() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const base = [...articoli].sort((a, b) =>
-      a.descrizione.localeCompare(b.descrizione, "it", { sensitivity: "base" })
-    );
 
-    if (!q) return base;
+    return articoli
+      .filter((a) => {
+        if (!q) return true;
+        return (
+          a.cod_articolo.toLowerCase().includes(q) ||
+          a.descrizione.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const pa = priority(a.scatole_inventario);
+        const pb = priority(b.scatole_inventario);
 
-    return base.filter((a) => {
-      return (
-        a.cod_articolo.toLowerCase().includes(q) ||
-        a.descrizione.toLowerCase().includes(q)
-      );
-    });
+        if (pa !== pb) return pa - pb;
+
+        return a.descrizione.localeCompare(b.descrizione, "it", {
+          sensitivity: "base",
+        });
+      });
   }, [articoli, query]);
 
   function pezziTotali(a: Articolo) {
@@ -110,7 +152,8 @@ export default function Home() {
     if (!selected) return;
 
     const n = parseInt(delta, 10);
-    if (!Number.isFinite(n) || n <= 0) return alert("Inserisci una quantità valida.");
+    if (!Number.isFinite(n) || n <= 0)
+      return alert("Inserisci una quantità valida.");
 
     const current = selected.scatole_inventario || 0;
     const next = sign === "+" ? current + n : current - n;
@@ -127,12 +170,16 @@ export default function Home() {
       return;
     }
 
-    setDelta("");
-    await loadArticoli();
+    // flash Apple-like
+    setFlash(sign === "+" ? "green" : "red");
+    window.setTimeout(() => setFlash(null), 260);
 
-    // aggiorna selected con i dati freschi
-    const updated = articoli.find((a) => a.id === selected.id);
-    setSelected(updated || null);
+    setDelta("");
+
+    // ricarica e aggiorna il selected con i dati freschi
+    const fresh = await loadArticoli();
+    const updated = fresh.find((a) => a.id === selected.id) || null;
+    setSelected(updated);
   }
 
   async function deleteArticolo(id: string) {
@@ -144,10 +191,19 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-900">
+    <main
+      className={[
+        "min-h-screen text-neutral-900",
+        "bg-gradient-to-b from-neutral-50 to-neutral-100",
+        flash === "green" ? "ring-8 ring-green-200/40" : "",
+        flash === "red" ? "ring-8 ring-red-200/40" : "",
+      ].join(" ")}
+    >
       <div className="mx-auto max-w-5xl px-4 py-6">
         <header className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">Inventario</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Magazzino Domobags
+          </h1>
           <p className="text-sm text-neutral-500">
             Borse in carta & scatole — gestione semplice con + / −
           </p>
@@ -180,35 +236,47 @@ export default function Home() {
               <p className="text-sm text-neutral-500">Nessun articolo trovato.</p>
             ) : (
               <div className="space-y-2">
-                {filtered.map((a) => (
-                  <button
-                    key={a.id}
-                    onClick={() => setSelected(a)}
-                    className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
-                      selected?.id === a.id
-                        ? "border-neutral-900 bg-neutral-50"
-                        : "border-neutral-200 bg-white hover:bg-neutral-50"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold">{a.descrizione}</div>
-                        <div className="text-xs text-neutral-500">{a.cod_articolo}</div>
-                      </div>
+                {filtered.map((a) => {
+                  const stato = statoArticolo(a.scatole_inventario);
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() => setSelected(a)}
+                      className={`w-full rounded-2xl border px-3 py-3 text-left transition active:scale-[0.995] ${
+                        selected?.id === a.id
+                          ? "border-neutral-900 bg-neutral-50"
+                          : "border-neutral-200 bg-white hover:bg-neutral-50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold">{a.descrizione}</div>
+                          <div className="text-xs text-neutral-500">{a.cod_articolo}</div>
 
-                      <div className="text-right">
-                        <div className="text-lg font-semibold">
-                          {a.scatole_inventario}
+                          <div className="mt-2">
+                            <span
+                              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${stato.pill}`}
+                            >
+                              {stato.label}
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-xs text-neutral-500">scatole</div>
-                      </div>
-                    </div>
 
-                    <div className="mt-2 text-xs text-neutral-500">
-                      {pezziTotali(a)} pz totali • {a.pz_per_scatola} pz/scatola
-                    </div>
-                  </button>
-                ))}
+                        <div className="text-right">
+                          <div className="text-lg font-semibold">
+                            {formatInt(a.scatole_inventario)}
+                          </div>
+                          <div className="text-xs text-neutral-500">scatole</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-2 text-xs text-neutral-500">
+                        {formatInt(pezziTotali(a))} pz totali •{" "}
+                        {formatInt(a.pz_per_scatola)} pz/scatola
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -224,26 +292,42 @@ export default function Home() {
             ) : (
               <div className="space-y-4">
                 <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-                  <div className="text-sm font-semibold">{selected.descrizione}</div>
-                  <div className="text-xs text-neutral-500">{selected.cod_articolo}</div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold">{selected.descrizione}</div>
+                      <div className="text-xs text-neutral-500">{selected.cod_articolo}</div>
+                    </div>
+                    <div>
+                      {(() => {
+                        const s = statoArticolo(selected.scatole_inventario);
+                        return (
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${s.pill}`}
+                          >
+                            {s.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <div className="rounded-2xl bg-white p-3">
                       <div className="text-xs text-neutral-500">Scatole</div>
                       <div className="text-xl font-semibold">
-                        {selected.scatole_inventario}
+                        {formatInt(selected.scatole_inventario)}
                       </div>
                     </div>
                     <div className="rounded-2xl bg-white p-3">
                       <div className="text-xs text-neutral-500">Totale pezzi</div>
                       <div className="text-xl font-semibold">
-                        {pezziTotali(selected)}
+                        {formatInt(pezziTotali(selected))}
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-3 text-xs text-neutral-500">
-                    {selected.pz_per_scatola} pz/scatola
+                    {formatInt(selected.pz_per_scatola)} pz/scatola
                   </div>
                 </div>
 
