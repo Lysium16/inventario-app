@@ -1,6 +1,7 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 :root {
+  --brand: #009E8A;
   --background: #ffffff;
   --foreground: #171717;
 }
@@ -14,6 +15,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+  --brand: #009E8A;
     --background: #0a0a0a;
     --foreground: #ededed;
   }
@@ -29,5 +31,33 @@ body {
   0% { opacity: 0; }
   20% { opacity: 1; }
   100% { opacity: 0; }
+}
+
+
+.card-critico {
+  border: 1px solid rgba(239, 68, 68, 0.28); /* red-500 soft */
+  background: linear-gradient(180deg, rgba(254, 242, 242, 0.65), rgba(255, 255, 255, 1));
+  box-shadow:
+    0 18px 50px rgba(239, 68, 68, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.7) inset;
+}
+
+.card-basso {
+  border: 1px solid rgba(249, 115, 22, 0.22); /* orange soft */
+  background: linear-gradient(180deg, rgba(255, 247, 237, 0.65), rgba(255, 255, 255, 1));
+}
+
+.brand-btn {
+  background: var(--brand);
+}
+
+.brand-btn:hover {
+  filter: brightness(0.96);
+}
+
+.brand-pill {
+  background: color-mix(in srgb, var(--brand) 16%, white);
+  color: color-mix(in srgb, var(--brand) 55%, black);
+  border: 1px solid color-mix(in srgb, var(--brand) 28%, white);
 }
 
