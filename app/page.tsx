@@ -28,6 +28,7 @@ type Ordine = {
 
 type RigaOrdine = {
   id: string;
+  created_at: string;
   ordine_id: string;
   articolo_id: string;
   descrizione: string;
@@ -43,6 +44,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
+// ✅ MINIMO ORDINE
 const MIN_ORDINE_EUR = 1000;
 
 function fmtInt(n: number) {
@@ -68,8 +70,20 @@ function daOrdinareConsigliato(a: Articolo) {
 function statoScorte(a: Articolo) {
   const disp = disponibili(a);
   const min = a.scorta_minima || 0;
-  if (disp <= min) return { k: "critico" as const, label: "Critico", pill: "bg-red-100 text-red-700 border-red-200", card: "card-critico" };
-  if (disp <= min + 3) return { k: "basso" as const, label: "Basso", pill: "bg-orange-100 text-orange-800 border-orange-200", card: "card-basso" };
+  if (disp <= min)
+    return {
+      k: "critico" as const,
+      label: "Critico",
+      pill: "bg-red-100 text-red-700 border-red-200",
+      card: "card-critico",
+    };
+  if (disp <= min + 3)
+    return {
+      k: "basso" as const,
+      label: "Basso",
+      pill: "bg-orange-100 text-orange-800 border-orange-200",
+      card: "card-basso",
+    };
   return { k: "ok" as const, label: "OK", pill: "brand-pill", card: "" };
 }
 function prio(a: Articolo) {
@@ -90,19 +104,20 @@ export default function Page() {
   const [toast, setToast] = useState<string | null>(null);
   const [flash, setFlash] = useState<null | "green" | "red">(null);
 
-  // Magazzino: carico/scarico
+  // carico/scarico magazzino
   const [delta, setDelta] = useState("");
-  // Impegnate: input “delta” che si svuota dopo Applica
+
+  // ✅ impegnate: DELTA (aggiunge/toglie), campo sempre vuoto dopo Applica
   const [impDelta, setImpDelta] = useState("");
-  // Impostazioni avanzate (meno facili da premere per sbaglio)
-  const [showAdvanced, setShowAdvanced] = useState(false);// Dettaglio: campi (min, impegnate, obiettivo, costo, visibile)
+
+  // ✅ impostazioni protette
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [editMin, setEditMin] = useState("");
-  const [editImp, setEditImp] = useState("");
   const [editObj, setEditObj] = useState("");
   const [editCosto, setEditCosto] = useState("");
   const [editVis, setEditVis] = useState(true);
 
-  // Ordini
+  // Ordini / Arrivi
   const [carrello, setCarrello] = useState<Record<string, number>>({});
   const [ordineNote, setOrdineNote] = useState("");
   const [ordini, setOrdini] = useState<Ordine[]>([]);
@@ -137,12 +152,12 @@ export default function Page() {
     if (e1) return alert(e1.message);
     setOrdini((o || []) as Ordine[]);
 
-    // righe non arrivate (arrivi)
     const { data: r, error: e2 } = await supabase
       .from("righe_ordine")
       .select("*")
       .eq("arrived", false)
       .order("created_at", { ascending: false });
+
     if (e2) return alert(e2.message);
     setRigheAperte((r || []) as RigaOrdine[]);
   }
@@ -158,12 +173,16 @@ export default function Page() {
     if (!selected) return;
     const fresh = articoli.find((a) => a.id === selected.id);
     if (!fresh) return;
+
     setSelected(fresh);
     setEditMin(String(fresh.scorta_minima ?? 0));
-    setEditImp(String(fresh.scatole_impegnate ?? 0));
     setEditObj(String(fresh.scorta_obiettivo ?? 0));
     setEditCosto(String(fresh.prezzo_costo ?? 0));
     setEditVis(!!fresh.visibile_magazzino);
+
+    setDelta("");
+    setImpDelta("");
+    setShowAdvanced(false);
   }, [articoli]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const listMagazzino = useMemo(() => {
@@ -180,8 +199,6 @@ export default function Page() {
 
   const criticiCount = useMemo(() => listMagazzino.filter((a) => statoScorte(a).k === "critico").length, [listMagazzino]);
 
-  // Suggerimento ordine: usa SOLO articoli “ordinabili” = qui per semplicità: quelli NON visibili magazzino (puoi cambiarlo dopo)
-  // + in realtà include anche quelli visibili se vuoi: io li includo tutti, ma mostro una sezione "Ordine (tu)" filtrabile.
   const suggeriti = useMemo(() => {
     return articoli
       .map((a) => ({ a, qta: daOrdinareConsigliato(a) }))
@@ -217,26 +234,9 @@ export default function Page() {
     await loadArticoli();
   }
 
-  async function applyImpegnateDelta(sign: "+" | "-") {
+  async function applyDelta(sign: "+" | "-") {
     if (!selected) return;
 
-    const n = parseInt(impDelta, 10);
-    if (!Number.isFinite(n) || n <= 0) return alert("Inserisci una quantità valida.");
-
-    const current = selected.scatole_impegnate || 0;
-    const next = sign === "+" ? current + n : current - n;
-    if (next < 0) return alert("Non puoi andare sotto zero.");
-
-    const { error } = await supabase.from("articoli").update({ scatole_impegnate: next }).eq("id", selected.id);
-    if (error) return alert(error.message);
-
-    setImpDelta("");  // ✅ svuota campo
-    showToast("Impegnate aggiornate");
-    await loadArticoli();
-  }
-
-async function applyDelta(sign: "+" | "-") {
-    if (!selected) return;
     const n = parseInt(delta, 10);
     if (!Number.isFinite(n) || n <= 0) return alert("Inserisci una quantità valida.");
 
@@ -253,10 +253,29 @@ async function applyDelta(sign: "+" | "-") {
     await loadArticoli();
   }
 
+  // ✅ QUESTA aggiunge/toglie, NON sostituisce
+  async function applyImpegnateDelta(sign: "+" | "-") {
+    if (!selected) return;
+
+    const n = parseInt(impDelta, 10);
+    if (!Number.isFinite(n) || n <= 0) return alert("Inserisci una quantità valida.");
+
+    const current = selected.scatole_impegnate || 0;
+    const next = sign === "+" ? current + n : current - n;
+    if (next < 0) return alert("Non puoi andare sotto zero.");
+
+    const { error } = await supabase.from("articoli").update({ scatole_impegnate: next }).eq("id", selected.id);
+    if (error) return alert(error.message);
+
+    setImpDelta(""); // ✅ svuota SEMPRE
+    showToast("Impegnate aggiornate");
+    await loadArticoli();
+  }
+
   async function confermaOrdine() {
     const entries = Object.entries(carrello).filter(([, q]) => q && q > 0);
     if (entries.length === 0) return alert("Carrello vuoto.");
-    // crea ordine
+
     const { data: ord, error: e1 } = await supabase
       .from("ordini")
       .insert({ note: ordineNote || "", totale: totaleCarrello, stato: "APERTO" })
@@ -264,16 +283,14 @@ async function applyDelta(sign: "+" | "-") {
       .single();
     if (e1) return alert(e1.message);
 
-    const ordine = ord as Ordine;
-
-    // crea righe e aggiorna in_arrivo
     for (const [articolo_id, qta] of entries) {
       const a = articoli.find((x) => x.id === articolo_id);
       if (!a) continue;
+
       const prezzo = Number(a.prezzo_costo) || 0;
 
       const { error: eR } = await supabase.from("righe_ordine").insert({
-        ordine_id: ordine.id,
+        ordine_id: (ord as Ordine).id,
         articolo_id,
         descrizione: a.descrizione,
         cod_articolo: a.cod_articolo,
@@ -335,13 +352,7 @@ async function applyDelta(sign: "+" | "-") {
         {label}
       </button>
     );
-    return (
-      <div className="flex gap-2">
-        {btn("magazzino", "Magazzino")}
-        {btn("ordini", "Ordini")}
-        {btn("arrivi", "Arrivi")}
-      </div>
-    );
+    return <div className="flex gap-2">{btn("magazzino", "Magazzino")}{btn("ordini", "Ordini")}{btn("arrivi", "Arrivi")}</div>;
   }
 
   return (
@@ -364,34 +375,25 @@ async function applyDelta(sign: "+" | "-") {
 
       <header className="sticky top-0 z-20 border-b border-neutral-200/60 bg-white/75 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="h-9 w-24 shrink-0 overflow-hidden rounded-xl bg-white">
-              <img src="/domobags-logo.png" alt="Domobags" className="h-full w-full object-contain" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-lg font-semibold tracking-tight">Magazzino Domobags</div>
-              <div className="text-xs text-neutral-500">
-                {tab === "magazzino" && (loading ? "…" : `${listMagazzino.length} articoli • ${criticiCount} critici`)}
-                {tab === "ordini" && `Suggeriti: ${suggeriti.length} • Totale carrello: ${fmtEur(totaleCarrello)}`}
-                {tab === "arrivi" && `Righe da ricevere: ${righeAperte.length}`}
-              </div>
+          <div className="min-w-0">
+            <div className="text-lg font-semibold tracking-tight">Magazzino Domobags</div>
+            <div className="text-xs text-neutral-500">
+              {tab === "magazzino" && (loading ? "…" : `${listMagazzino.length} articoli • ${criticiCount} critici`)}
+              {tab === "ordini" && `Suggeriti: ${suggeriti.length} • Totale: ${fmtEur(totaleCarrello)}`}
+              {tab === "arrivi" && `Righe da ricevere: ${righeAperte.length}`}
             </div>
           </div>
-
           <TopTabs />
         </div>
 
         {tab === "magazzino" && (
           <div className="mx-auto max-w-6xl px-4 pb-3">
-            <div className="relative">
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Cerca per codice o descrizione…"
-                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 pr-10 text-base shadow-sm outline-none focus:border-neutral-400"
-              />
-              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">⌕</div>
-            </div>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Cerca per codice o descrizione…"
+              className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+            />
           </div>
         )}
       </header>
@@ -403,37 +405,23 @@ async function applyDelta(sign: "+" | "-") {
               {loading ? (
                 <div className="p-3 text-sm text-neutral-500">Caricamento…</div>
               ) : listMagazzino.length === 0 ? (
-                <div className="p-6 text-center text-sm text-neutral-500">
-                  Nessun articolo visibile in magazzino.
-                </div>
+                <div className="p-6 text-center text-sm text-neutral-500">Nessun articolo.</div>
               ) : (
                 <div className="space-y-2">
                   {listMagazzino.map((a) => {
                     const s = statoScorte(a);
                     const disp = disponibili(a);
-
                     return (
                       <div key={a.id} className={["rounded-2xl border border-neutral-200 bg-white p-3 hover:bg-neutral-50 transition", s.card].join(" ")}>
-                        <button
-                          onClick={() => setSelected(a)}
-                          className="w-full text-left"
-                        >
+                        <button onClick={() => setSelected(a)} className="w-full text-left">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <div className="truncate text-sm font-semibold">{a.descrizione}</div>
                               <div className="truncate text-xs text-neutral-500">{a.cod_articolo}</div>
-
-                              <div className="mt-2 flex flex-wrap items-center gap-2">
-                                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${s.pill}`}>{s.label}</span>
-                                <span className="text-xs text-neutral-500">min {fmtInt(a.scorta_minima ?? 0)}</span>
-                                {a.in_arrivo > 0 && <span className="text-xs text-neutral-500">• in arrivo {fmtInt(a.in_arrivo)}</span>}
-                              </div>
-
                               <div className="mt-2 text-xs text-neutral-500">
-                                Magazzino: {fmtInt(a.scatole_inventario)} • Impegnate: {fmtInt(a.scatole_impegnate)}
+                                Magazzino: {fmtInt(a.scatole_inventario)} • Impegnate: {fmtInt(a.scatole_impegnate)} {a.in_arrivo > 0 ? `• In arrivo: ${fmtInt(a.in_arrivo)}` : ""}
                               </div>
                             </div>
-
                             <div className="text-right">
                               <div className="text-3xl font-semibold leading-none">{fmtInt(disp)}</div>
                               <div className="mt-1 text-xs text-neutral-500">disponibili</div>
@@ -449,9 +437,7 @@ async function applyDelta(sign: "+" | "-") {
 
             <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
               {!selected ? (
-                <div className="flex h-full min-h-[240px] items-center justify-center text-sm text-neutral-500">
-                  Seleziona un articolo dalla lista
-                </div>
+                <div className="flex h-full min-h-[240px] items-center justify-center text-sm text-neutral-500">Seleziona un articolo</div>
               ) : (
                 <div className="space-y-4">
                   <div className="rounded-3xl border border-neutral-200 bg-gradient-to-b from-neutral-50 to-white p-4">
@@ -479,135 +465,147 @@ async function applyDelta(sign: "+" | "-") {
                         <div className="mt-1 text-2xl font-semibold">{fmtInt(disponibili(selected))}</div>
                       </div>
                     </div>
+                  </div>
 
-                    {selected.in_arrivo > 0 && (
-                      <div className="mt-3 text-xs text-neutral-500">
-                        In arrivo: {fmtInt(selected.in_arrivo)} • Copertura: {fmtInt(copertura(selected))}
+                  {/* ✅ Impegnate: delta */}
+                  <div className="rounded-3xl border border-neutral-200 p-4">
+                    <div className="text-sm font-semibold">Modifica Impegnate (delta)</div>
+                    <div className="mt-2 text-xs text-neutral-500">Scrivi quanto aggiungere/togliere, poi Applica. Il campo si svuota.</div>
+
+                    <input
+                      value={impDelta}
+                      onChange={(e) => setImpDelta(e.target.value.replace(/[^\d]/g, ""))}
+                      inputMode="numeric"
+                      placeholder="es. 5"
+                      className="mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                    />
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => applyImpegnateDelta("+")}
+                        className="rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
+                      >
+                        + Applica
+                      </button>
+                      <button
+                        onClick={() => applyImpegnateDelta("-")}
+                        className="rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm active:scale-[0.99]"
+                      >
+                        − Applica
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ✅ Impostazioni protette */}
+                  <div className="rounded-3xl border border-neutral-200 p-4 space-y-3">
+                    <button
+                      onClick={() => setShowAdvanced(!showAdvanced)}
+                      className="flex w-full items-center justify-between rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50"
+                    >
+                      <span>Impostazioni</span>
+                      <span className="text-neutral-500">{showAdvanced ? "▲" : "▼"}</span>
+                    </button>
+
+                    {showAdvanced && (
+                      <div className="space-y-3">
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <div>
+                            <div className="text-sm font-semibold">Scorta minima</div>
+                            <div className="mt-2 flex gap-2">
+                              <input
+                                value={editMin}
+                                onChange={(e) => setEditMin(e.target.value.replace(/[^\d]/g, ""))}
+                                inputMode="numeric"
+                                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                              />
+                              <button
+                                onClick={() => updateSelected({ scorta_minima: parseInt(editMin || "0", 10) })}
+                                className="rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-sm"
+                              >
+                                Applica
+                              </button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-sm font-semibold">Scorta obiettivo</div>
+                            <div className="mt-2 flex gap-2">
+                              <input
+                                value={editObj}
+                                onChange={(e) => setEditObj(e.target.value.replace(/[^\d]/g, ""))}
+                                inputMode="numeric"
+                                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                              />
+                              <button
+                                onClick={() => updateSelected({ scorta_obiettivo: parseInt(editObj || "0", 10) })}
+                                className="rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-sm"
+                              >
+                                Applica
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <div>
+                            <div className="text-sm font-semibold">Costo (€/scatola)</div>
+                            <div className="mt-2 flex gap-2">
+                              <input
+                                value={editCosto}
+                                onChange={(e) => setEditCosto(e.target.value.replace(/[^\d.,]/g, ""))}
+                                inputMode="decimal"
+                                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                              />
+                              <button
+                                onClick={() => updateSelected({ prezzo_costo: parseFloat((editCosto || "0").replace(",", ".")) })}
+                                className="rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-sm"
+                              >
+                                Applica
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-3">
+                            <div>
+                              <div className="text-sm font-semibold">Visibile in Magazzino</div>
+                              <div className="text-xs text-neutral-500">Per tenere la vista di mamma semplice</div>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={editVis}
+                              onChange={(e) => {
+                                const v = e.target.checked;
+                                setEditVis(v);
+                                updateSelected({ visibile_magazzino: v });
+                              }}
+                              className="h-5 w-5"
+                            />
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  <div className="rounded-3xl border border-neutral-200 p-4 space-y-3">
-                    <div className="rounded-3xl border border-neutral-200 p-4 space-y-3">
-  <button
-    onClick={() => setShowAdvanced(!showAdvanced)}
-    className="flex w-full items-center justify-between rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50"
-  >
-    <span>Impostazioni</span>
-    <span className="text-neutral-500">{showAdvanced ? "▲" : "▼"}</span>
-  </button>
-
-  {showAdvanced && (
-    <div className="space-y-3">
-      <div className="grid gap-2 md:grid-cols-2">
-        <div>
-          <div className="text-sm font-semibold">Scorta minima</div>
-          <div className="mt-2 flex gap-2">
-            <input
-              value={editMin}
-              onChange={(e) => setEditMin(e.target.value.replace(/[^\d]/g, ""))}
-              inputMode="numeric"
-              className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
-            />
-            <button
-              onClick={() => updateSelected({ scorta_minima: parseInt(editMin || "0", 10) })}
-              className="brand-btn shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
-            >
-              Applica
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <div className="text-sm font-semibold">Scorta obiettivo (per ordini)</div>
-          <div className="mt-2 flex gap-2">
-            <input
-              value={editObj}
-              onChange={(e) => setEditObj(e.target.value.replace(/[^\d]/g, ""))}
-              inputMode="numeric"
-              className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
-            />
-            <button
-              onClick={() => updateSelected({ scorta_obiettivo: parseInt(editObj || "0", 10) })}
-              className="brand-btn shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
-            >
-              Applica
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-2 md:grid-cols-2">
-        <div>
-          <div className="text-sm font-semibold">Costo (€/scatola)</div>
-          <div className="mt-2 flex gap-2">
-            <input
-              value={editCosto}
-              onChange={(e) => setEditCosto(e.target.value.replace(/[^\d.,]/g, ""))}
-              inputMode="decimal"
-              className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
-            />
-            <button
-              onClick={() => updateSelected({ prezzo_costo: parseFloat((editCosto || "0").replace(",", ".")) })}
-              className="brand-btn shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
-            >
-              Applica
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-3">
-          <div>
-            <div className="text-sm font-semibold">Visibile in Magazzino (mamma)</div>
-            <div className="text-xs text-neutral-500">Se disattivi, resta solo per la sezione Ordini</div>
-          </div>
-          <input
-            type="checkbox"
-            checked={editVis}
-            onChange={(e) => {
-              const v = e.target.checked;
-              setEditVis(v);
-              updateSelected({ visibile_magazzino: v });
-            }}
-            className="h-5 w-5"
-          />
-        </div>
-      </div>
-    </div>
-  )}
-</div>
-                    </div>
-
-                    <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-3">
-                      <div>
-                        <div className="text-sm font-semibold">Visibile in Magazzino (mamma)</div>
-                        <div className="text-xs text-neutral-500">Se disattivi, resta solo per la sezione Ordini</div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={editVis}
-                        onChange={(e) => {
-                          const v = e.target.checked;
-                          setEditVis(v);
-                          updateSelected({ visibile_magazzino: v });
-                        }}
-                        className="h-5 w-5"
-                      />
-                    </div>
-                  </div>
-
+                  {/* Carico/Scarico */}
                   <div className="rounded-3xl border border-neutral-200 p-4">
                     <label className="block text-xs text-neutral-500">Carico / Scarico magazzino</label>
-                    <input value={delta} onChange={(e) => setDelta(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric" placeholder="es. 2"
-                      className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400" />
-
+                    <input
+                      value={delta}
+                      onChange={(e) => setDelta(e.target.value.replace(/[^\d]/g, ""))}
+                      inputMode="numeric"
+                      placeholder="es. 2"
+                      className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                    />
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <button onClick={() => applyDelta("+")}
-                        className="brand-btn rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]">+ Carico</button>
-                      <button onClick={() => applyDelta("-")}
-                        className="rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm active:scale-[0.99]">− Scarico</button>
+                      <button onClick={() => applyDelta("+")} className="rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-sm">
+                        + Carico
+                      </button>
+                      <button onClick={() => applyDelta("-")} className="rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm">
+                        − Scarico
+                      </button>
                     </div>
                   </div>
+
                 </div>
               )}
             </section>
@@ -621,13 +619,12 @@ async function applyDelta(sign: "+" | "-") {
                 <div className="text-base font-semibold">Ordine consigliato</div>
                 <button
                   onClick={() => {
-                    // riempi il carrello con i suggeriti
                     const next: Record<string, number> = {};
                     for (const x of suggeriti) next[x.a.id] = x.qta;
                     setCarrello(next);
-                    showToast("Suggerimenti aggiunti al carrello");
+                    showToast("Suggerimenti aggiunti");
                   }}
-                  className="brand-btn rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
+                  className="rounded-2xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm"
                 >
                   Suggerisci ordine
                 </button>
@@ -635,7 +632,7 @@ async function applyDelta(sign: "+" | "-") {
 
               <div className="mt-3 space-y-2">
                 {suggeriti.length === 0 ? (
-                  <div className="text-sm text-neutral-500">Nessun articolo da ordinare (in base agli obiettivi).</div>
+                  <div className="text-sm text-neutral-500">Nessun articolo da ordinare.</div>
                 ) : (
                   suggeriti.map(({ a, qta }) => (
                     <div key={a.id} className="rounded-2xl border border-neutral-200 bg-white p-3">
@@ -646,7 +643,6 @@ async function applyDelta(sign: "+" | "-") {
                           <div className="mt-2 text-xs text-neutral-500">
                             Disp {fmtInt(disponibili(a))} • Arrivo {fmtInt(a.in_arrivo)} • Obiettivo {fmtInt(a.scorta_obiettivo)}
                           </div>
-                          <div className="mt-1 text-xs text-neutral-500">Costo: {fmtEur(Number(a.prezzo_costo) || 0)} / scatola</div>
                         </div>
                         <div className="text-right">
                           <div className="text-2xl font-semibold">{fmtInt(qta)}</div>
@@ -659,22 +655,9 @@ async function applyDelta(sign: "+" | "-") {
                           Nel carrello: <span className="font-semibold">{fmtInt(carrello[a.id] || 0)}</span>
                         </div>
                         <div className="flex gap-2">
-                          <button
-                            onClick={() => setCart(a.id, (carrello[a.id] || 0) + 1)}
-                            className="brand-btn rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm"
-                          >
-                            +
-                          </button>
-                          <button
-                            onClick={() => setCart(a.id, clamp0((carrello[a.id] || 0) - 1))}
-                            className="rounded-2xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm"
-                          >
-                            −
-                          </button>
-                          <button
-                            onClick={() => setCart(a.id, qta)}
-                            className="rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 shadow-sm hover:bg-neutral-50"
-                          >
+                          <button onClick={() => setCart(a.id, (carrello[a.id] || 0) + 1)} className="rounded-2xl bg-neutral-900 px-3 py-2 text-sm font-semibold text-white shadow-sm">+</button>
+                          <button onClick={() => setCart(a.id, clamp0((carrello[a.id] || 0) - 1))} className="rounded-2xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm">−</button>
+                          <button onClick={() => setCart(a.id, qta)} className="rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 shadow-sm hover:bg-neutral-50">
                             Usa consigliato
                           </button>
                         </div>
@@ -715,123 +698,84 @@ async function applyDelta(sign: "+" | "-") {
                 {Object.entries(carrello).filter(([, q]) => q > 0).length === 0 ? (
                   <div className="text-sm text-neutral-500">Carrello vuoto.</div>
                 ) : (
-                  Object.entries(carrello)
-                    .filter(([, q]) => q > 0)
-                    .map(([id, q]) => {
-                      const a = articoli.find((x) => x.id === id);
-                      if (!a) return null;
-                      const line = (q || 0) * (Number(a.prezzo_costo) || 0);
-                      return (
-                        <div key={id} className="rounded-2xl border border-neutral-200 bg-white p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold truncate">{a.descrizione}</div>
-                              <div className="text-xs text-neutral-500 truncate">{a.cod_articolo}</div>
-                              <div className="mt-1 text-xs text-neutral-500">
-                                {fmtInt(q)} × {fmtEur(Number(a.prezzo_costo) || 0)} = {fmtEur(line)}
-                              </div>
+                  Object.entries(carrello).filter(([, q]) => q > 0).map(([id, q]) => {
+                    const a = articoli.find((x) => x.id === id);
+                    if (!a) return null;
+                    const line = (q || 0) * (Number(a.prezzo_costo) || 0);
+                    return (
+                      <div key={id} className="rounded-2xl border border-neutral-200 bg-white p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold truncate">{a.descrizione}</div>
+                            <div className="text-xs text-neutral-500 truncate">{a.cod_articolo}</div>
+                            <div className="mt-1 text-xs text-neutral-500">
+                              {fmtInt(q)} × {fmtEur(Number(a.prezzo_costo) || 0)} = {fmtEur(line)}
                             </div>
-                            <button
-                              onClick={() => setCart(id, 0)}
-                              className="rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600 hover:bg-neutral-50"
-                            >
-                              Rimuovi
-                            </button>
                           </div>
+                          <button onClick={() => setCart(id, 0)} className="rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600 hover:bg-neutral-50">
+                            Rimuovi
+                          </button>
                         </div>
-                      );
-                    })
+                      </div>
+                    );
+                  })
                 )}
               </div>
 
               <button
                 onClick={confermaOrdine}
                 disabled={totaleCarrello <= 0}
-                className="brand-btn mt-3 w-full rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
+                className="mt-3 w-full rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
               >
                 Conferma ordine (aggiorna “in arrivo”)
-              </button>
-
-              <button
-                onClick={() => {
-                  // testo ordine da copiare
-                  const lines: string[] = [];
-                  lines.push("ORDINE DOMOBAGS");
-                  lines.push("");
-                  for (const [id, q] of Object.entries(carrello).filter(([,qq]) => qq>0)) {
-                    const a = articoli.find((x) => x.id === id);
-                    if (!a) continue;
-                    lines.push(`${a.cod_articolo} - ${a.descrizione} : ${q} scatole`);
-                  }
-                  lines.push("");
-                  lines.push(`Totale stimato: ${fmtEur(totaleCarrello)}`);
-                  if (ordineNote.trim()) {
-                    lines.push("");
-                    lines.push(`Note: ${ordineNote.trim()}`);
-                  }
-                  navigator.clipboard.writeText(lines.join("\n"));
-                  showToast("Testo ordine copiato");
-                }}
-                className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-800 shadow-sm hover:bg-neutral-50"
-              >
-                Copia testo ordine
               </button>
             </section>
           </div>
         )}
 
         {tab === "arrivi" && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm md:col-span-2">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-base font-semibold">Arrivi</div>
-                  <div className="text-sm text-neutral-500">Seleziona le righe arrivate e premi “Ricevi selezionati”.</div>
-                </div>
-                <button
-                  onClick={riceviSelezionati}
-                  className="brand-btn rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
-                >
-                  Ricevi selezionati
-                </button>
+          <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-base font-semibold">Arrivi</div>
+                <div className="text-sm text-neutral-500">Seleziona le righe arrivate e premi “Ricevi selezionati”.</div>
               </div>
+              <button onClick={riceviSelezionati} className="rounded-2xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm">
+                Ricevi selezionati
+              </button>
+            </div>
 
-              <div className="mt-3 space-y-2">
-                {righeAperte.length === 0 ? (
-                  <div className="text-sm text-neutral-500">Nessun arrivo in attesa.</div>
-                ) : (
-                  righeAperte.map((r) => (
-                    <div key={r.id} className="rounded-2xl border border-neutral-200 bg-white p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <input
-                            type="checkbox"
-                            checked={!!arriviSel[r.id]}
-                            onChange={(e) => setArriviSel((p) => ({ ...p, [r.id]: e.target.checked }))}
-                            className="mt-1 h-5 w-5"
-                          />
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold truncate">{r.descrizione}</div>
-                            <div className="text-xs text-neutral-500 truncate">{r.cod_articolo}</div>
-                            <div className="mt-1 text-xs text-neutral-500">
-                              Quantità: <span className="font-semibold">{fmtInt(r.qta)}</span> • costo: {fmtEur(Number(r.prezzo_costo) || 0)}
-                            </div>
+            <div className="mt-3 space-y-2">
+              {righeAperte.length === 0 ? (
+                <div className="text-sm text-neutral-500">Nessun arrivo in attesa.</div>
+              ) : (
+                righeAperte.map((r) => (
+                  <div key={r.id} className="rounded-2xl border border-neutral-200 bg-white p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={!!arriviSel[r.id]}
+                          onChange={(e) => setArriviSel((p) => ({ ...p, [r.id]: e.target.checked }))}
+                          className="mt-1 h-5 w-5"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold truncate">{r.descrizione}</div>
+                          <div className="text-xs text-neutral-500 truncate">{r.cod_articolo}</div>
+                          <div className="mt-1 text-xs text-neutral-500">
+                            Quantità: <span className="font-semibold">{fmtInt(r.qta)}</span>
                           </div>
                         </div>
-                        <div className="text-right text-xs text-neutral-500">
-                          Ordine: {r.ordine_id.slice(0, 8)}…
-                        </div>
                       </div>
+                      <div className="text-right text-xs text-neutral-500">Ordine: {r.ordine_id.slice(0, 8)}…</div>
                     </div>
-                  ))
-                )}
-              </div>
-            </section>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
       </div>
     </main>
   );
 }
-
-
