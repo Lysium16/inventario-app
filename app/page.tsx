@@ -1101,7 +1101,7 @@ function TopTabs() {
         <div className="grid gap-2 md:grid-cols-3">
           <div className="rounded-2xl border border-neutral-200 bg-white p-3">
             <div className="text-xs text-neutral-500">Valore magazzino (fisico)</div>
-            <div className="text-xl font-semibold">{fmtEur(dash.valoreMagazzino</div>
+            <div className="text-xl font-semibold">{fmtEur(dash.valoreMagazzino)}</div>
           </div>
           <div className="rounded-2xl border border-neutral-200 bg-white p-3">
             <div className="text-xs text-neutral-500">Valore disponibili</div>
@@ -1180,6 +1180,7 @@ function TopTabs() {
     </main>
   );
 }
+
 
 
 
