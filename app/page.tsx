@@ -341,7 +341,71 @@ export default function Page() {
     await loadOrdiniEAperti();
   }
 
-  function TopTabs() {
+  function toggleArrivo(id: string) {
+    setArriviSel((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  async function caricaArriviSelezionati() {
+    const ids = Object.entries(arriviSel).filter(([, v]) => v).map(([id]) => id);
+    if (ids.length === 0) return alert("Seleziona almeno una riga arrivata.");
+
+    // Prendo righe selezionate
+    const rows = righeAperte.filter((r) => ids.includes(r.id));
+    if (rows.length === 0) return alert("Selezione non valida.");
+
+    // 1) per ogni riga: aggiorna articolo (inventario +, in_arrivo -) e marca arrived
+    for (const r of rows) {
+      const a = articoli.find((x) => x.id === r.articolo_id);
+      if (!a) continue;
+
+      const nextInv = (a.scatole_inventario || 0) + (r.qta || 0);
+      const nextInArrivo = (a.in_arrivo || 0) - (r.qta || 0);
+
+      if (nextInArrivo < 0) {
+        // Non blocco tutto: correggo a 0 (meglio che rompere)
+        console.warn("in_arrivo sotto zero, correggo a 0", a.id);
+      }
+
+      const { error: eA } = await supabase
+        .from("articoli")
+        .update({ scatole_inventario: nextInv, in_arrivo: Math.max(0, nextInArrivo) })
+        .eq("id", a.id);
+
+      if (eA) return alert(eA.message);
+
+      const { error: eR } = await supabase
+        .from("righe_ordine")
+        .update({ arrived: true, arrived_at: new Date().toISOString() })
+        .eq("id", r.id);
+
+      if (eR) return alert(eR.message);
+    }
+
+    // 2) per ogni ordine coinvolto: se non ci sono più righe aperte -> stato RICEVUTO
+    const ordineIds = Array.from(new Set(rows.map((r) => r.ordine_id)));
+    for (const oid of ordineIds) {
+      const { data: stillOpen, error: eCheck } = await supabase
+        .from("righe_ordine")
+        .select("id")
+        .eq("ordine_id", oid)
+        .eq("arrived", false);
+
+      if (eCheck) return alert(eCheck.message);
+
+      if (!stillOpen || stillOpen.length === 0) {
+        const { error: eUp } = await supabase.from("ordini").update({ stato: "RICEVUTO" }).eq("id", oid);
+        if (eUp) return alert(eUp.message);
+      }
+    }
+
+    // pulizia + refresh
+    setArriviSel({});
+    showToast("Caricato in magazzino");
+    await loadArticoli();
+    await loadRigheAperte();
+  }
+
+function TopTabs() {
     const btn = (k: Tab, label: string) => (
       <button
         onClick={() => setTab(k)}
@@ -793,4 +857,5 @@ export default function Page() {
     </main>
   );
 }
+
 
