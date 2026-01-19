@@ -43,7 +43,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
-const MIN_ORDINE_EUR = 500;
+const MIN_ORDINE_EUR = 1000;
 
 function fmtInt(n: number) {
   return new Intl.NumberFormat("it-IT").format(n || 0);
@@ -92,8 +92,10 @@ export default function Page() {
 
   // Magazzino: carico/scarico
   const [delta, setDelta] = useState("");
-
-  // Dettaglio: campi (min, impegnate, obiettivo, costo, visibile)
+  // Impegnate: input “delta” che si svuota dopo Applica
+  const [impDelta, setImpDelta] = useState("");
+  // Impostazioni avanzate (meno facili da premere per sbaglio)
+  const [showAdvanced, setShowAdvanced] = useState(false);// Dettaglio: campi (min, impegnate, obiettivo, costo, visibile)
   const [editMin, setEditMin] = useState("");
   const [editImp, setEditImp] = useState("");
   const [editObj, setEditObj] = useState("");
@@ -215,7 +217,25 @@ export default function Page() {
     await loadArticoli();
   }
 
-  async function applyDelta(sign: "+" | "-") {
+  async function applyImpegnateDelta(sign: "+" | "-") {
+    if (!selected) return;
+
+    const n = parseInt(impDelta, 10);
+    if (!Number.isFinite(n) || n <= 0) return alert("Inserisci una quantità valida.");
+
+    const current = selected.scatole_impegnate || 0;
+    const next = sign === "+" ? current + n : current - n;
+    if (next < 0) return alert("Non puoi andare sotto zero.");
+
+    const { error } = await supabase.from("articoli").update({ scatole_impegnate: next }).eq("id", selected.id);
+    if (error) return alert(error.message);
+
+    setImpDelta("");  // ✅ svuota campo
+    showToast("Impegnate aggiornate");
+    await loadArticoli();
+  }
+
+async function applyDelta(sign: "+" | "-") {
     if (!selected) return;
     const n = parseInt(delta, 10);
     if (!Number.isFinite(n) || n <= 0) return alert("Inserisci una quantità valida.");
@@ -468,52 +488,94 @@ export default function Page() {
                   </div>
 
                   <div className="rounded-3xl border border-neutral-200 p-4 space-y-3">
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <div>
-                        <div className="text-sm font-semibold">Scorta minima</div>
-                        <div className="mt-2 flex gap-2">
-                          <input value={editMin} onChange={(e) => setEditMin(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric"
-                            className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400" />
-                          <button onClick={() => updateSelected({ scorta_minima: parseInt(editMin || "0", 10) })}
-                            className="brand-btn shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]">Salva</button>
-                        </div>
-                      </div>
+                    <div className="rounded-3xl border border-neutral-200 p-4 space-y-3">
+  <button
+    onClick={() => setShowAdvanced(!showAdvanced)}
+    className="flex w-full items-center justify-between rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50"
+  >
+    <span>Impostazioni</span>
+    <span className="text-neutral-500">{showAdvanced ? "▲" : "▼"}</span>
+  </button>
 
-                      <div>
-                        <div className="text-sm font-semibold">Impegnate (promemoria)</div>
-                        <div className="mt-2 flex gap-2">
-                          <input value={editImp} onChange={(e) => setEditImp(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric"
-                            className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400" />
-                          <button onClick={() => updateSelected({ scatole_impegnate: parseInt(editImp || "0", 10) })}
-                            className="brand-btn shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]">Salva</button>
-                        </div>
-                      </div>
-                    </div>
+  {showAdvanced && (
+    <div className="space-y-3">
+      <div className="grid gap-2 md:grid-cols-2">
+        <div>
+          <div className="text-sm font-semibold">Scorta minima</div>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={editMin}
+              onChange={(e) => setEditMin(e.target.value.replace(/[^\d]/g, ""))}
+              inputMode="numeric"
+              className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+            />
+            <button
+              onClick={() => updateSelected({ scorta_minima: parseInt(editMin || "0", 10) })}
+              className="brand-btn shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
+            >
+              Applica
+            </button>
+          </div>
+        </div>
 
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <div>
-                        <div className="text-sm font-semibold">Scorta obiettivo (per ordini)</div>
-                        <div className="mt-2 flex gap-2">
-                          <input value={editObj} onChange={(e) => setEditObj(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric"
-                            className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400" />
-                          <button onClick={() => updateSelected({ scorta_obiettivo: parseInt(editObj || "0", 10) })}
-                            className="brand-btn shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]">Salva</button>
-                        </div>
-                      </div>
+        <div>
+          <div className="text-sm font-semibold">Scorta obiettivo (per ordini)</div>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={editObj}
+              onChange={(e) => setEditObj(e.target.value.replace(/[^\d]/g, ""))}
+              inputMode="numeric"
+              className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+            />
+            <button
+              onClick={() => updateSelected({ scorta_obiettivo: parseInt(editObj || "0", 10) })}
+              className="brand-btn shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
+            >
+              Applica
+            </button>
+          </div>
+        </div>
+      </div>
 
-                      <div>
-                        <div className="text-sm font-semibold">Costo (€/scatola)</div>
-                        <div className="mt-2 flex gap-2">
-                          <input value={editCosto} onChange={(e) => setEditCosto(e.target.value.replace(/[^\d.,]/g, ""))} inputMode="decimal"
-                            className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400" />
-                          <button
-                            onClick={() => updateSelected({ prezzo_costo: parseFloat((editCosto || "0").replace(",", ".")) })}
-                            className="brand-btn shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
-                          >
-                            Salva
-                          </button>
-                        </div>
-                      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        <div>
+          <div className="text-sm font-semibold">Costo (€/scatola)</div>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={editCosto}
+              onChange={(e) => setEditCosto(e.target.value.replace(/[^\d.,]/g, ""))}
+              inputMode="decimal"
+              className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+            />
+            <button
+              onClick={() => updateSelected({ prezzo_costo: parseFloat((editCosto || "0").replace(",", ".")) })}
+              className="brand-btn shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
+            >
+              Applica
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-3">
+          <div>
+            <div className="text-sm font-semibold">Visibile in Magazzino (mamma)</div>
+            <div className="text-xs text-neutral-500">Se disattivi, resta solo per la sezione Ordini</div>
+          </div>
+          <input
+            type="checkbox"
+            checked={editVis}
+            onChange={(e) => {
+              const v = e.target.checked;
+              setEditVis(v);
+              updateSelected({ visibile_magazzino: v });
+            }}
+            className="h-5 w-5"
+          />
+        </div>
+      </div>
+    </div>
+  )}
+</div>
                     </div>
 
                     <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-3">
@@ -771,3 +833,5 @@ export default function Page() {
     </main>
   );
 }
+
+
