@@ -141,12 +141,33 @@ function exportOrdinePdf(articoli: Articolo[], carrello: Record<string, number>)
   doc.save(`elenco-ordine-borse-in-carta_${dataIt.replaceAll("/", "-")}.pdf`);
 }
 
-type Tab = "magazzino" | "ordini" | "arrivi";
+type Tab = "magazzino" | "ordini" | "arrivi" | "dashboard";
 
 export default function Page() {
   const [tab, setTab] = useState<Tab>("magazzino");
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  const [loading, setLoading] = useState(true);
+  function toggleAdmin() {
+    const enabled = localStorage.getItem("nikolas_dashboard") === "1";
+    if (enabled) {
+      localStorage.removeItem("nikolas_dashboard");
+      setIsAdmin(false);
+      if (tab === "dashboard") setTab("magazzino");
+      showToast("Dashboard disattivata");
+      return;
+    }
+
+    const pin = window.prompt("Modalità Nikolas: inserisci PIN");
+    // PIN semplice: cambialo qui se vuoi
+    if (pin === "diabolica") {
+      localStorage.setItem("nikolas_dashboard", "1");
+      setIsAdmin(true);
+      showToast("Dashboard attiva");
+      setTab("dashboard");
+    } else if (pin !== null) {
+      alert("PIN errato.");
+    }
+  }const [loading, setLoading] = useState(true);
   const [articoli, setArticoli] = useState<Articolo[]>([]);
   const [query, setQuery] = useState("");
 
@@ -289,7 +310,61 @@ export default function Page() {
       .filter(Boolean) as Array<{ a: Articolo; qta: number }>;
   }, [carrello, articoli]);
 
-  async function updateSelected(patch: Partial<Articolo>) {
+  // ===== Dashboard (solo Nikolas) =====
+  const dash = useMemo(() => {
+    const visibili = articoli.filter(a => a.visibile_magazzino !== false);
+    const totArticoli = visibili.length;
+
+    const critici = visibili.filter(a => statoScorte(a).k === "critico");
+    const bassi = visibili.filter(a => statoScorte(a).k === "basso");
+
+    let valoreMagazzino = 0;        // scatole fisiche * costo
+    let valoreDisponibili = 0;      // disponibili * costo
+    let valoreCopertura = 0;        // (disponibili + in_arrivo) * costo
+
+    for (const a of visibili) {
+      const costo = Number(a.prezzo_costo || 0);
+      valoreMagazzino += (a.scatole_inventario || 0) * costo;
+      valoreDisponibili += disponibili(a) * costo;
+      valoreCopertura += copertura(a) * costo;
+    }
+
+    // Top deficit (quanto manca per arrivare a obiettivo considerando anche in arrivo)
+    const topDeficit = visibili
+      .map(a => ({
+        a,
+        deficit: daOrdinareConsigliato(a),
+        stato: statoScorte(a).label,
+        disp: disponibili(a),
+        inArrivo: a.in_arrivo || 0,
+        obj: a.scorta_obiettivo || 0,
+      }))
+      .filter(x => x.deficit > 0)
+      .sort((x, y) => {
+        const px = prio(x.a), py = prio(y.a);
+        if (px !== py) return px - py;
+        return y.deficit - x.deficit;
+      })
+      .slice(0, 10);
+
+    // Spesa stimata ordine consigliato (se lo facessi adesso)
+    let spesaConsigliata = 0;
+    for (const x of topDeficit) {
+      const costo = Number(x.a.prezzo_costo || 0);
+      spesaConsigliata += (x.deficit || 0) * costo;
+    }
+
+    return {
+      totArticoli,
+      nCritici: critici.length,
+      nBassi: bassi.length,
+      valoreMagazzino,
+      valoreDisponibili,
+      valoreCopertura,
+      spesaConsigliata,
+      topDeficit,
+    };
+  }, [articoli]);async function updateSelected(patch: Partial<Articolo>) {
     if (!selected) return;
     const { error } = await supabase.from("articoli").update(patch).eq("id", selected.id);
     if (error) return alert(error.message);
@@ -461,6 +536,7 @@ function TopTabs() {
           ["magazzino", "Magazzino"],
           ["ordini", "Ordini"],
           ["arrivi", "Arrivi"],
+          ...(isAdmin ? [["dashboard", "Dashboard"]] as any : []),
         ].map(([k, label]) => (
           <button
             key={k}
@@ -994,18 +1070,108 @@ function TopTabs() {
     )}
 
     <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-600">
-      Seleziona le righe arrivate e premi <strong>Carica selezionati</strong>.  
-      L’app aggiorna magazzino e scala l’in arrivo automaticamente.
+      Seleziona le righe arrivate e premi <strong>Carica selezionati</strong>.
     </div>
   </section>
 )}
-              </div>
-            )}
-          </section>
-        )}
-      </div>
 
-      <style jsx global>{`
+{/* DASHBOARD (solo Nikolas) */}
+{tab === "dashboard" && (
+  <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+    {!isAdmin ? (
+      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
+        Dashboard riservata. (Premi <strong>Nikolas</strong> in alto e inserisci il PIN.)
+      </div>
+    ) : (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Dashboard (solo Nikolas)</h2>
+          <div className="text-xs text-neutral-500">Zero fronzoli, solo numeri.</div>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-3">
+          <div className="rounded-2xl border border-neutral-200 bg-white p-3">
+            <div className="text-xs text-neutral-500">Articoli visibili</div>
+            <div className="text-2xl font-semibold">{dash.totArticoli}</div>
+          </div>
+          <div className="rounded-2xl border border-neutral-200 bg-white p-3">
+            <div className="text-xs text-neutral-500">Critici</div>
+            <div className="text-2xl font-semibold">{dash.nCritici}</div>
+          </div>
+          <div className="rounded-2xl border border-neutral-200 bg-white p-3">
+            <div className="text-xs text-neutral-500">Bassi</div>
+            <div className="text-2xl font-semibold">{dash.nBassi}</div>
+          </div>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-3">
+          <div className="rounded-2xl border border-neutral-200 bg-white p-3">
+            <div className="text-xs text-neutral-500">Valore magazzino (fisico)</div>
+            <div className="text-xl font-semibold">{fmtEur(dash.valoreMagazzino)}</div>
+          </div>
+          <div className="rounded-2xl border border-neutral-200 bg-white p-3">
+            <div className="text-xs text-neutral-500">Valore disponibili</div>
+            <div className="text-xl font-semibold">{fmtEur(dash.valoreDisponibili)}</div>
+          </div>
+          <div className="rounded-2xl border border-neutral-200 bg-white p-3">
+            <div className="text-xs text-neutral-500">Valore copertura (disp + arrivo)</div>
+            <div className="text-xl font-semibold">{fmtEur(dash.valoreCopertura)}</div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold">Spesa stimata per “ordine consigliato”</div>
+            <div className="text-lg font-semibold">{fmtEur(dash.spesaConsigliata)}</div>
+          </div>
+          <div className="mt-1 text-xs text-neutral-500">
+            (Calcolata come “quanto manca all’obiettivo” × costo/scatola, considerando anche l’in arrivo)
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-neutral-200 bg-white p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-sm font-semibold">Top 10: cosa manca per arrivare all’obiettivo</div>
+            <button
+              onClick={suggerisciOrdine}
+              className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm"
+              style={{ backgroundColor: DOMOBAGS_GREEN }}
+            >
+              Porta in Ordini
+            </button>
+          </div>
+
+          {dash.topDeficit.length === 0 ? (
+            <div className="text-sm text-neutral-500">Niente da ordinare (in base agli obiettivi).</div>
+          ) : (
+            <div className="space-y-2">
+              {dash.topDeficit.map((x) => (
+                <div key={x.a.id} className="rounded-2xl border border-neutral-200 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold">{x.a.descrizione}</div>
+                      <div className="text-xs text-neutral-500">{x.a.cod_articolo}</div>
+                      <div className="mt-1 text-xs text-neutral-500">
+                        Stato: {x.stato} • Disponibili {x.disp} • In arrivo {x.inArrivo} • Obiettivo {x.obj}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-semibold">{x.deficit}</div>
+                      <div className="text-xs text-neutral-500">scatole da ordinare</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+  </section>
+)}
+</div>
+
+<style jsx global>{`
         .card-critico {
           border-color: rgba(239, 68, 68, 0.35) !important;
           box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.12) inset;
@@ -1020,4 +1186,5 @@ function TopTabs() {
     </main>
   );
 }
+
 
