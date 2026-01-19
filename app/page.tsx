@@ -145,19 +145,7 @@ type Tab = "magazzino" | "ordini" | "arrivi" | "dashboard";
 
 export default function Page() {
   const [tab, setTab] = useState<Tab>("magazzino");
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  function toggleAdmin() {
-    const enabled = localStorage.getItem("nikolas_dashboard") === "1";
-    if (enabled) {
-      localStorage.removeItem("nikolas_dashboard");
-      setIsAdmin(false);
-      if (tab === "dashboard") setTab("magazzino");
-      showToast("Dashboard disattivata");
-      return;
-    }
-
-    const pin = window.prompt("Modalità Nikolas: inserisci PIN");
+const pin = window.prompt("Modalità Nikolas: inserisci PIN");
     // PIN semplice: cambialo qui se vuoi
     if (pin === "diabolica") {
       localStorage.setItem("nikolas_dashboard", "1");
@@ -473,7 +461,7 @@ export default function Page() {
           ["magazzino", "Magazzino"],
           ["ordini", "Ordini"],
           ["arrivi", "Arrivi"],
-          ...(isAdmin ? [["dashboard", "Dashboard"]] as any : []),
+          ["dashboard", "Dashboard"],
         ].map(([k, label]) => (
           <button
             key={k}
@@ -1015,11 +1003,7 @@ export default function Page() {
 {/* DASHBOARD (solo Nikolas) */}
 {tab === "dashboard" && (
   <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-    {!isAdmin ? (
-      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
-        Dashboard riservata. (Premi <strong>Nikolas</strong> in alto e inserisci il PIN.)
-      </div>
-    ) : (
+    
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Dashboard (solo Nikolas)</h2>
@@ -1044,7 +1028,7 @@ export default function Page() {
         <div className="grid gap-2 md:grid-cols-3">
           <div className="rounded-2xl border border-neutral-200 bg-white p-3">
             <div className="text-xs text-neutral-500">Valore magazzino (fisico)</div>
-            <div className="text-xl font-semibold">{fmtEur(dash.valoreMagazzino)}</div>
+            <div className="text-xl font-semibold">{fmtEur(dash.valoreMagazzino</div>
           </div>
           <div className="rounded-2xl border border-neutral-200 bg-white p-3">
             <div className="text-xs text-neutral-500">Valore disponibili</div>
@@ -1123,5 +1107,6 @@ export default function Page() {
     </main>
   );
 }
+
 
 
