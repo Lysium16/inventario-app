@@ -174,8 +174,7 @@ export default function Page() {
 
   // Arrivi (preparazione per Blocco 3)
   const [righeAperte, setRigheAperte] = useState<RigaOrdine[]>([]);
-
-  function showToast(msg: string) {
+  const [arriviSel, setArriviSel] = useState<Record<string, boolean>>({});function showToast(msg: string) {
     setToast(msg);
     window.setTimeout(() => setToast(null), 1600);
   }
@@ -391,7 +390,71 @@ export default function Page() {
     setTab("arrivi");
   }
 
-  function TopTabs() {
+  function toggleArrivo(id: string) {
+    setArriviSel((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  async function caricaArriviSelezionati() {
+    const ids = Object.entries(arriviSel).filter(([, v]) => v).map(([id]) => id);
+    if (ids.length === 0) return alert("Seleziona almeno una riga arrivata.");
+
+    // Prendo righe selezionate
+    const rows = righeAperte.filter((r) => ids.includes(r.id));
+    if (rows.length === 0) return alert("Selezione non valida.");
+
+    // 1) per ogni riga: aggiorna articolo (inventario +, in_arrivo -) e marca arrived
+    for (const r of rows) {
+      const a = articoli.find((x) => x.id === r.articolo_id);
+      if (!a) continue;
+
+      const nextInv = (a.scatole_inventario || 0) + (r.qta || 0);
+      const nextInArrivo = (a.in_arrivo || 0) - (r.qta || 0);
+
+      if (nextInArrivo < 0) {
+        // Non blocco tutto: correggo a 0 (meglio che rompere)
+        console.warn("in_arrivo sotto zero, correggo a 0", a.id);
+      }
+
+      const { error: eA } = await supabase
+        .from("articoli")
+        .update({ scatole_inventario: nextInv, in_arrivo: Math.max(0, nextInArrivo) })
+        .eq("id", a.id);
+
+      if (eA) return alert(eA.message);
+
+      const { error: eR } = await supabase
+        .from("righe_ordine")
+        .update({ arrived: true, arrived_at: new Date().toISOString() })
+        .eq("id", r.id);
+
+      if (eR) return alert(eR.message);
+    }
+
+    // 2) per ogni ordine coinvolto: se non ci sono più righe aperte -> stato RICEVUTO
+    const ordineIds = Array.from(new Set(rows.map((r) => r.ordine_id)));
+    for (const oid of ordineIds) {
+      const { data: stillOpen, error: eCheck } = await supabase
+        .from("righe_ordine")
+        .select("id")
+        .eq("ordine_id", oid)
+        .eq("arrived", false);
+
+      if (eCheck) return alert(eCheck.message);
+
+      if (!stillOpen || stillOpen.length === 0) {
+        const { error: eUp } = await supabase.from("ordini").update({ stato: "RICEVUTO" }).eq("id", oid);
+        if (eUp) return alert(eUp.message);
+      }
+    }
+
+    // pulizia + refresh
+    setArriviSel({});
+    showToast("Caricato in magazzino");
+    await loadArticoli();
+    await loadRigheAperte();
+  }
+
+function TopTabs() {
     return (
       <div className="flex items-center gap-2">
         {[
@@ -864,40 +927,78 @@ export default function Page() {
         )}
 
         {/* ARRIVI */}
-        {tab === "arrivi" && (
-          <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold">In arrivo</h2>
-              <button
-                onClick={loadRigheAperte}
-                className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm"
-                style={{ backgroundColor: DOMOBAGS_GREEN }}
-              >
-                Aggiorna
-              </button>
-            </div>
+{tab === "arrivi" && (
+  <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+    <div className="mb-3 flex items-center justify-between gap-2">
+      <h2 className="text-base font-semibold">In arrivo</h2>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={loadRigheAperte}
+          className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm"
+          style={{ backgroundColor: DOMOBAGS_GREEN }}
+        >
+          Aggiorna
+        </button>
+        <button
+          onClick={caricaArriviSelezionati}
+          className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm"
+          style={{ backgroundColor: DOMOBAGS_GREEN }}
+        >
+          Carica selezionati
+        </button>
+      </div>
+    </div>
 
-            {righeAperte.length === 0 ? (
-              <p className="text-sm text-neutral-500">Niente in arrivo (ancora).</p>
-            ) : (
-              <div className="space-y-2">
-                {righeAperte.map((r) => (
-                  <div key={r.id} className="rounded-2xl border border-neutral-200 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold">{r.descrizione}</div>
-                        <div className="text-xs text-neutral-500">{r.cod_articolo}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-semibold">{r.qta}</div>
-                        <div className="text-xs text-neutral-500">scatole</div>
-                      </div>
-                    </div>
-                    <div className="mt-2 text-xs text-neutral-500">
-                      Qui nel Blocco 3 aggiungiamo i checkbox “Arrivato” + “Carica in magazzino”.
-                    </div>
+    {righeAperte.length === 0 ? (
+      <p className="text-sm text-neutral-500">Niente in arrivo.</p>
+    ) : (
+      <div className="space-y-2">
+        {righeAperte.map((r) => (
+          <button
+            key={r.id}
+            onClick={() => toggleArrivo(r.id)}
+            className={`w-full rounded-2xl border p-3 text-left transition ${
+              arriviSel[r.id] ? "border-neutral-900 bg-neutral-50" : "border-neutral-200 bg-white hover:bg-neutral-50"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="mt-1">
+                  <div
+                    className={`h-6 w-6 rounded-lg border flex items-center justify-center ${
+                      arriviSel[r.id] ? "text-white" : "text-transparent"
+                    }`}
+                    style={{
+                      borderColor: arriviSel[r.id] ? DOMOBAGS_GREEN : "rgb(212 212 212)",
+                      backgroundColor: arriviSel[r.id] ? DOMOBAGS_GREEN : "white",
+                    }}
+                  >
+                    ✓
                   </div>
-                ))}
+                </div>
+
+                <div>
+                  <div className="text-sm font-semibold">{r.descrizione}</div>
+                  <div className="text-xs text-neutral-500">{r.cod_articolo}</div>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <div className="text-lg font-semibold">{r.qta}</div>
+                <div className="text-xs text-neutral-500">scatole</div>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    )}
+
+    <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-600">
+      Seleziona le righe arrivate e premi <strong>Carica selezionati</strong>.  
+      L’app aggiorna magazzino e scala l’in arrivo automaticamente.
+    </div>
+  </section>
+)}
               </div>
             )}
           </section>
@@ -919,3 +1020,4 @@ export default function Page() {
     </main>
   );
 }
+
