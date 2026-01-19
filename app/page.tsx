@@ -544,32 +544,42 @@ function TopTabs() {
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-900">
       <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/85 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <div>
-            <div className="text-lg font-semibold tracking-tight">Magazzino</div>
-            <div className="text-xs text-neutral-500">
-              {tab === "magazzino" && `${criticiCount} articoli critici`}
-              {tab === "ordini" && `Totale ordine: ${fmtEur(totaleCarrello)} (minimo ${fmtEur(MIN_ORDINE_EUR)})`}
-              {tab === "arrivi" && `In arrivo: ${righeAperte.length} righe`}
-            </div>
-          </div>
-
-          <TopTabs />
+  <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+    <div className="flex items-center gap-3">
+      <div className="h-10 w-32 overflow-hidden rounded-xl bg-white">
+        <img src="/domobags-logo.png" alt="Domobags" className="h-full w-full object-contain" />
+      </div>
+      <div>
+        <div className="text-lg font-semibold tracking-tight text-neutral-900">
+          Magazzino Domobags
         </div>
+        <div className="text-xs text-neutral-500">
+          {tab === "magazzino" && `${criticiCount} articoli critici`}
+          {tab === "ordini" && `Totale ordine: ${fmtEur(totaleCarrello)}`}
+          {tab === "arrivi" && `Arrivi in attesa: ${righeAperte.length}`}
+        </div>
+      </div>
+    </div>
 
-        {tab === "magazzino" && (
-          <div className="mx-auto max-w-6xl px-4 pb-3">
-            <div
-              className="rounded-2xl border px-4 py-3 text-sm"
-              style={{ borderColor: DOMOBAGS_GREEN, backgroundColor: BRAND_BG, color: BRAND_TEXT }}
-            >
-              <strong>Nota per mamma:</strong>
-              <br />
-              Questo programma è a prova di diabolica: premi solo i pulsanti grandi, e non si rompe. (Quasi.)
-            </div>
-          </div>
-        )}
-      </header>
+    <TopTabs />
+  </div>
+
+  {tab === "magazzino" && (
+    <div className="mx-auto max-w-6xl px-4 pb-3">
+      <div
+        className="rounded-2xl border px-4 py-3 text-sm"
+        style={{
+          borderColor: DOMOBAGS_GREEN,
+          backgroundColor: "#E8F7F7",
+          color: "#064B4D",
+        }}
+      >
+        <strong>Approvata da mamma Domobags™</strong><br />
+        Se qualcosa non funziona, è sicuramente colpa del computer.
+      </div>
+    </div>
+  )}
+</header>
 
       <div className="mx-auto max-w-6xl px-4 py-6">
         {/* TOAST */}
@@ -1170,6 +1180,7 @@ function TopTabs() {
     </main>
   );
 }
+
 
 
 
