@@ -46,6 +46,7 @@ const supabase = createClient(
 
 // ✅ MINIMO ORDINE
 const MIN_ORDINE_EUR = 1000;
+const DOMOBAGS_GREEN = "#2FA4A9";
 
 function fmtInt(n: number) {
   return new Intl.NumberFormat("it-IT").format(n || 0);
@@ -373,30 +374,43 @@ export default function Page() {
         </div>
       )}
 
-      <header className="sticky top-0 z-20 border-b border-neutral-200/60 bg-white/75 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <div className="min-w-0">
-            <div className="text-lg font-semibold tracking-tight">Magazzino Domobags</div>
-            <div className="text-xs text-neutral-500">
-              {tab === "magazzino" && (loading ? "…" : `${listMagazzino.length} articoli • ${criticiCount} critici`)}
-              {tab === "ordini" && `Suggeriti: ${suggeriti.length} • Totale: ${fmtEur(totaleCarrello)}`}
-              {tab === "arrivi" && `Righe da ricevere: ${righeAperte.length}`}
-            </div>
-          </div>
-          <TopTabs />
+      <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/85 backdrop-blur-xl">
+  <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+    <div className="flex items-center gap-3">
+      <div className="h-10 w-32 overflow-hidden rounded-xl bg-white">
+        <img src="/domobags-logo.png" alt="Domobags" className="h-full w-full object-contain" />
+      </div>
+      <div>
+        <div className="text-lg font-semibold tracking-tight text-neutral-900">
+          Magazzino Domobags
         </div>
+        <div className="text-xs text-neutral-500">
+          {tab === "magazzino" && `${criticiCount} articoli critici`}
+          {tab === "ordini" && `Totale ordine: ${fmtEur(totaleCarrello)}`}
+          {tab === "arrivi" && `Arrivi in attesa: ${righeAperte.length}`}
+        </div>
+      </div>
+    </div>
 
-        {tab === "magazzino" && (
-          <div className="mx-auto max-w-6xl px-4 pb-3">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Cerca per codice o descrizione…"
-              className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
-            />
-          </div>
-        )}
-      </header>
+    <TopTabs />
+  </div>
+
+  {tab === "magazzino" && (
+    <div className="mx-auto max-w-6xl px-4 pb-3">
+      <div
+        className="rounded-2xl border px-4 py-3 text-sm"
+        style={{
+          borderColor: DOMOBAGS_GREEN,
+          backgroundColor: "#E8F7F7",
+          color: "#064B4D",
+        }}
+      >
+        <strong>Approvata da mamma Domobags™</strong><br />
+        Se qualcosa non funziona, è sicuramente colpa del computer.
+      </div>
+    </div>
+  )}
+</header>
 
       <div className="mx-auto max-w-6xl px-4 py-4">
         {tab === "magazzino" && (
@@ -779,3 +793,4 @@ export default function Page() {
     </main>
   );
 }
+
