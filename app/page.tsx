@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -9,6 +9,7 @@ type Articolo = {
   descrizione: string;
   pz_per_scatola: number;
   scatole_inventario: number;
+  scorta_minima: number;
   created_at: string;
 };
 
@@ -21,61 +22,68 @@ function formatInt(n: number) {
   return new Intl.NumberFormat("it-IT").format(n);
 }
 
-function statoArticolo(scatole: number) {
-  if (scatole <= 2) {
-    return {
-      label: "Critico",
-      pill: "bg-red-100 text-red-700 border-red-200",
-    };
-  }
-  if (scatole <= 9) {
-    return {
-      label: "Basso",
-      pill: "bg-orange-100 text-orange-800 border-orange-200",
-    };
-  }
-  return {
-    label: "OK",
-    pill: "bg-green-100 text-green-800 border-green-200",
-  };
+function clampNonNeg(n: number) {
+  return n < 0 ? 0 : n;
 }
 
-function priority(scatole: number) {
-  // più piccolo = più urgente
-  if (scatole <= 2) return 0;
-  if (scatole <= 9) return 1;
-  return 2;
+function getStato(scatole: number, min: number) {
+  // Critico: <= min
+  // Basso:   <= min + 3
+  // OK:      >  min + 3
+  if (scatole <= min) {
+    return { key: "critico" as const, label: "Critico", pill: "bg-red-100 text-red-700 border-red-200" };
+  }
+  if (scatole <= min + 3) {
+    return { key: "basso" as const, label: "Basso", pill: "bg-orange-100 text-orange-800 border-orange-200" };
+  }
+  return { key: "ok" as const, label: "OK", pill: "bg-green-100 text-green-800 border-green-200" };
 }
+
+function priority(scatole: number, min: number) {
+  const s = getStato(scatole, min).key;
+  return s === "critico" ? 0 : s === "basso" ? 1 : 2;
+}
+
+type Filter = "tutti" | "critici" | "bassi";
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
   const [articoli, setArticoli] = useState<Articolo[]>([]);
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("tutti");
 
-  // Form nuovo articolo
+  // Modale nuovo articolo
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const [cod, setCod] = useState("");
   const [desc, setDesc] = useState("");
   const [pzScatola, setPzScatola] = useState("");
   const [scatoleInv, setScatoleInv] = useState("");
+  const [scortaMin, setScortaMin] = useState("");
 
-  // Dettaglio / modifica
+  // Dettaglio
   const [selected, setSelected] = useState<Articolo | null>(null);
   const [delta, setDelta] = useState("");
+  const [editMin, setEditMin] = useState("");
 
-  // feedback
+  // Feedback
   const [flash, setFlash] = useState<null | "green" | "red">(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 1600);
+  }
 
   async function loadArticoli() {
     setLoading(true);
     const { data, error } = await supabase
       .from("articoli")
-      .select("*")
-      .order("descrizione", { ascending: true });
+      .select("*");
 
     if (error) {
       alert(error.message);
       setLoading(false);
-      return [];
+      return [] as Articolo[];
     }
 
     const list = (data || []) as Articolo[];
@@ -88,28 +96,43 @@ export default function Home() {
     loadArticoli();
   }, []);
 
+  // Keep selected fresh after reload
+  useEffect(() => {
+    if (!selected) return;
+    const fresh = articoli.find((a) => a.id === selected.id);
+    if (fresh) {
+      setSelected(fresh);
+      setEditMin(String(fresh.scorta_minima ?? 0));
+    }
+  }, [articoli]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
 
-    return articoli
+    const base = articoli
       .filter((a) => {
-        if (!q) return true;
-        return (
+        const matchQ =
+          !q ||
           a.cod_articolo.toLowerCase().includes(q) ||
-          a.descrizione.toLowerCase().includes(q)
-        );
+          a.descrizione.toLowerCase().includes(q);
+
+        if (!matchQ) return false;
+
+        const stato = getStato(a.scatole_inventario ?? 0, a.scorta_minima ?? 0).key;
+
+        if (filter === "critici") return stato === "critico";
+        if (filter === "bassi") return stato === "basso";
+        return true;
       })
       .sort((a, b) => {
-        const pa = priority(a.scatole_inventario);
-        const pb = priority(b.scatole_inventario);
-
+        const pa = priority(a.scatole_inventario ?? 0, a.scorta_minima ?? 0);
+        const pb = priority(b.scatole_inventario ?? 0, b.scorta_minima ?? 0);
         if (pa !== pb) return pa - pb;
-
-        return a.descrizione.localeCompare(b.descrizione, "it", {
-          sensitivity: "base",
-        });
+        return a.descrizione.localeCompare(b.descrizione, "it", { sensitivity: "base" });
       });
-  }, [articoli, query]);
+
+    return base;
+  }, [articoli, query, filter]);
 
   function pezziTotali(a: Articolo) {
     return (a.scatole_inventario || 0) * (a.pz_per_scatola || 0);
@@ -120,40 +143,46 @@ export default function Home() {
     const descrizione = desc.trim();
     const pz_per_scatola = parseInt(pzScatola, 10);
     const scatole_inventario = parseInt(scatoleInv || "0", 10);
+    const scorta_minima = parseInt(scortaMin || "0", 10);
 
     if (!cod_articolo) return alert("Inserisci il codice articolo.");
     if (!descrizione) return alert("Inserisci la descrizione.");
-    if (!Number.isFinite(pz_per_scatola) || pz_per_scatola < 0)
-      return alert("Pz per scatola non valido.");
-    if (!Number.isFinite(scatole_inventario) || scatole_inventario < 0)
-      return alert("Scatole inventario non valido.");
+    if (!Number.isFinite(pz_per_scatola) || pz_per_scatola < 0) return alert("Pz per scatola non valido.");
+    if (!Number.isFinite(scatole_inventario) || scatole_inventario < 0) return alert("Scatole inventario non valido.");
+    if (!Number.isFinite(scorta_minima) || scorta_minima < 0) return alert("Scorta minima non valida.");
 
     const { error } = await supabase.from("articoli").insert({
       cod_articolo,
       descrizione,
       pz_per_scatola,
       scatole_inventario,
+      scorta_minima,
     });
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+    if (error) return alert(error.message);
 
     setCod("");
     setDesc("");
     setPzScatola("");
     setScatoleInv("");
+    setScortaMin("");
+    setIsAddOpen(false);
 
     await loadArticoli();
+    showToast("Articolo salvato");
+  }
+
+  async function setFlashToast(sign: "+" | "-") {
+    setFlash(sign === "+" ? "green" : "red");
+    window.setTimeout(() => setFlash(null), 220);
+    showToast(sign === "+" ? "Carico registrato" : "Scarico registrato");
   }
 
   async function applyDelta(sign: "+" | "-") {
     if (!selected) return;
 
     const n = parseInt(delta, 10);
-    if (!Number.isFinite(n) || n <= 0)
-      return alert("Inserisci una quantità valida.");
+    if (!Number.isFinite(n) || n <= 0) return alert("Inserisci una quantità valida.");
 
     const current = selected.scatole_inventario || 0;
     const next = sign === "+" ? current + n : current - n;
@@ -165,21 +194,48 @@ export default function Home() {
       .update({ scatole_inventario: next })
       .eq("id", selected.id);
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    // flash Apple-like
-    setFlash(sign === "+" ? "green" : "red");
-    window.setTimeout(() => setFlash(null), 260);
+    if (error) return alert(error.message);
 
     setDelta("");
+    await setFlashToast(sign);
 
-    // ricarica e aggiorna il selected con i dati freschi
     const fresh = await loadArticoli();
-    const updated = fresh.find((a) => a.id === selected.id) || null;
-    setSelected(updated);
+    setSelected(fresh.find((a) => a.id === selected.id) || null);
+  }
+
+  async function quickStep(id: string, step: 1 | -1) {
+    const a = articoli.find((x) => x.id === id);
+    if (!a) return;
+
+    const next = clampNonNeg((a.scatole_inventario || 0) + step);
+
+    const { error } = await supabase
+      .from("articoli")
+      .update({ scatole_inventario: next })
+      .eq("id", id);
+
+    if (error) return alert(error.message);
+
+    await setFlashToast(step === 1 ? "+" : "-");
+    await loadArticoli();
+  }
+
+  async function saveScortaMinima() {
+    if (!selected) return;
+
+    const v = parseInt(editMin || "0", 10);
+    if (!Number.isFinite(v) || v < 0) return alert("Scorta minima non valida.");
+
+    const { error } = await supabase
+      .from("articoli")
+      .update({ scorta_minima: v })
+      .eq("id", selected.id);
+
+    if (error) return alert(error.message);
+
+    showToast("Scorta minima aggiornata");
+    const fresh = await loadArticoli();
+    setSelected(fresh.find((a) => a.id === selected.id) || null);
   }
 
   async function deleteArticolo(id: string) {
@@ -188,231 +244,330 @@ export default function Home() {
     if (error) return alert(error.message);
     setSelected(null);
     await loadArticoli();
+    showToast("Articolo eliminato");
   }
 
   return (
-    <main
-      className={[
-        "min-h-screen text-neutral-900",
-        "bg-gradient-to-b from-neutral-50 to-neutral-100",
-        flash === "green" ? "ring-8 ring-green-200/40" : "",
-        flash === "red" ? "ring-8 ring-red-200/40" : "",
-      ].join(" ")}
-    >
-      <div className="mx-auto max-w-5xl px-4 py-6">
-        <header className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Magazzino Domobags
-          </h1>
-          <p className="text-sm text-neutral-500">
-            Borse in carta & scatole — gestione semplice con + / −
-          </p>
-        </header>
+    <main className="relative min-h-screen bg-gradient-to-b from-neutral-50 to-neutral-100 text-neutral-900">
+      {/* Flash overlay */}
+      {flash && (
+        <div
+          className={[
+            "pointer-events-none absolute inset-0 z-50",
+            flash === "green" ? "bg-green-200/30" : "bg-red-200/30",
+            "animate-[flash_220ms_ease-out_1]",
+          ].join(" ")}
+        />
+      )}
 
-        {/* Ricerca */}
-        <div className="mb-4">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cerca per codice o descrizione…"
-            className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
-          />
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-2xl bg-neutral-900 px-4 py-2 text-sm text-white shadow-lg">
+          {toast}
+        </div>
+      )}
+
+      {/* Header */}
+      <header className="sticky top-0 z-20 border-b border-neutral-200/60 bg-white/75 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+          <div className="min-w-0">
+            <div className="text-lg font-semibold tracking-tight">Magazzino Domobags</div>
+            <div className="text-xs text-neutral-500">
+              {loading ? "…" : `${filtered.length} articoli`} • + / − rapido • scorta minima
+            </div>
+          </div>
+
+          <button
+            onClick={() => setIsAddOpen(true)}
+            className="rounded-2xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
+          >
+            + Nuovo
+          </button>
         </div>
 
-        {/* Layout */}
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Lista */}
-          <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold">Articoli</h2>
-              <span className="text-xs text-neutral-500">
-                {loading ? "…" : `${filtered.length} tot`}
-              </span>
+        <div className="mx-auto max-w-6xl px-4 pb-3">
+          <div className="grid gap-2 md:grid-cols-[1fr_auto] md:items-center">
+            <div className="relative">
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Cerca per codice o descrizione…"
+                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 pr-10 text-base shadow-sm outline-none focus:border-neutral-400"
+              />
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">⌕</div>
             </div>
 
-            {loading ? (
-              <p className="text-sm text-neutral-500">Caricamento…</p>
-            ) : filtered.length === 0 ? (
-              <p className="text-sm text-neutral-500">Nessun articolo trovato.</p>
-            ) : (
-              <div className="space-y-2">
-                {filtered.map((a) => {
-                  const stato = statoArticolo(a.scatole_inventario);
-                  return (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFilter("tutti")}
+                className={[
+                  "rounded-2xl border px-3 py-2 text-sm shadow-sm",
+                  filter === "tutti" ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50",
+                ].join(" ")}
+              >
+                Tutti
+              </button>
+              <button
+                onClick={() => setFilter("critici")}
+                className={[
+                  "rounded-2xl border px-3 py-2 text-sm shadow-sm",
+                  filter === "critici" ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50",
+                ].join(" ")}
+              >
+                Critici
+              </button>
+              <button
+                onClick={() => setFilter("bassi")}
+                className={[
+                  "rounded-2xl border px-3 py-2 text-sm shadow-sm",
+                  filter === "bassi" ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50",
+                ].join(" ")}
+              >
+                Bassi
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto grid max-w-6xl gap-4 px-4 py-4 md:grid-cols-2">
+        {/* Lista */}
+        <section className="rounded-3xl border border-neutral-200 bg-white p-3 shadow-sm">
+          {loading ? (
+            <div className="p-3 text-sm text-neutral-500">Caricamento…</div>
+          ) : filtered.length === 0 ? (
+            <div className="p-3 text-sm text-neutral-500">Nessun articolo trovato.</div>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map((a) => {
+                const stato = getStato(a.scatole_inventario ?? 0, a.scorta_minima ?? 0);
+                return (
+                  <div key={a.id} className="rounded-2xl border border-neutral-200 bg-white p-3 hover:bg-neutral-50">
                     <button
-                      key={a.id}
-                      onClick={() => setSelected(a)}
-                      className={`w-full rounded-2xl border px-3 py-3 text-left transition active:scale-[0.995] ${
-                        selected?.id === a.id
-                          ? "border-neutral-900 bg-neutral-50"
-                          : "border-neutral-200 bg-white hover:bg-neutral-50"
-                      }`}
+                      onClick={() => {
+                        setSelected(a);
+                        setEditMin(String(a.scorta_minima ?? 0));
+                      }}
+                      className="w-full text-left"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-sm font-semibold">{a.descrizione}</div>
-                          <div className="text-xs text-neutral-500">{a.cod_articolo}</div>
+                          <div className="truncate text-sm font-semibold">{a.descrizione}</div>
+                          <div className="truncate text-xs text-neutral-500">{a.cod_articolo}</div>
 
-                          <div className="mt-2">
-                            <span
-                              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${stato.pill}`}
-                            >
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${stato.pill}`}>
                               {stato.label}
                             </span>
+                            <span className="text-xs text-neutral-500">
+                              min {formatInt(a.scorta_minima ?? 0)}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 text-xs text-neutral-500">
+                            {formatInt((a.scatole_inventario ?? 0) * (a.pz_per_scatola ?? 0))} pz • {formatInt(a.pz_per_scatola ?? 0)} pz/scatola
                           </div>
                         </div>
 
                         <div className="text-right">
-                          <div className="text-lg font-semibold">
-                            {formatInt(a.scatole_inventario)}
-                          </div>
-                          <div className="text-xs text-neutral-500">scatole</div>
+                          <div className="text-2xl font-semibold leading-none">{formatInt(a.scatole_inventario ?? 0)}</div>
+                          <div className="mt-1 text-xs text-neutral-500">scatole</div>
                         </div>
                       </div>
-
-                      <div className="mt-2 text-xs text-neutral-500">
-                        {formatInt(pezziTotali(a))} pz totali •{" "}
-                        {formatInt(a.pz_per_scatola)} pz/scatola
-                      </div>
                     </button>
-                  );
-                })}
-              </div>
-            )}
-          </section>
 
-          {/* Dettaglio + Azioni */}
-          <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-base font-semibold">Dettaglio</h2>
-
-            {!selected ? (
-              <p className="text-sm text-neutral-500">
-                Seleziona un articolo dalla lista.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold">{selected.descrizione}</div>
-                      <div className="text-xs text-neutral-500">{selected.cod_articolo}</div>
-                    </div>
-                    <div>
-                      {(() => {
-                        const s = statoArticolo(selected.scatole_inventario);
-                        return (
-                          <span
-                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${s.pill}`}
-                          >
-                            {s.label}
-                          </span>
-                        );
-                      })()}
+                    {/* Azioni rapide */}
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => quickStep(a.id, 1)}
+                        className="rounded-2xl bg-neutral-900 px-3 py-2 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
+                      >
+                        +1
+                      </button>
+                      <button
+                        onClick={() => quickStep(a.id, -1)}
+                        className="rounded-2xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm active:scale-[0.99]"
+                      >
+                        −1
+                      </button>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-2xl bg-white p-3">
-                      <div className="text-xs text-neutral-500">Scatole</div>
-                      <div className="text-xl font-semibold">
-                        {formatInt(selected.scatole_inventario)}
-                      </div>
-                    </div>
-                    <div className="rounded-2xl bg-white p-3">
-                      <div className="text-xs text-neutral-500">Totale pezzi</div>
-                      <div className="text-xl font-semibold">
-                        {formatInt(pezziTotali(selected))}
-                      </div>
-                    </div>
+        {/* Dettaglio */}
+        <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+          {!selected ? (
+            <div className="flex h-full min-h-[240px] items-center justify-center text-sm text-neutral-500">
+              Seleziona un articolo dalla lista
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-3xl border border-neutral-200 bg-gradient-to-b from-neutral-50 to-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">{selected.descrizione}</div>
+                    <div className="text-xs text-neutral-500">{selected.cod_articolo}</div>
                   </div>
-
-                  <div className="mt-3 text-xs text-neutral-500">
-                    {formatInt(selected.pz_per_scatola)} pz/scatola
+                  <div>
+                    {(() => {
+                      const s = getStato(selected.scatole_inventario ?? 0, selected.scorta_minima ?? 0);
+                      return (
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${s.pill}`}>
+                          {s.label}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-neutral-200 p-3">
-                  <label className="block text-xs text-neutral-500">
-                    Quantità scatole da aggiungere/togliere
-                  </label>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-neutral-200 bg-white p-3">
+                    <div className="text-xs text-neutral-500">Scatole</div>
+                    <div className="mt-1 text-2xl font-semibold">{formatInt(selected.scatole_inventario ?? 0)}</div>
+                  </div>
+                  <div className="rounded-2xl border border-neutral-200 bg-white p-3">
+                    <div className="text-xs text-neutral-500">Totale pezzi</div>
+                    <div className="mt-1 text-2xl font-semibold">
+                      {formatInt((selected.scatole_inventario ?? 0) * (selected.pz_per_scatola ?? 0))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 text-xs text-neutral-500">
+                  {formatInt(selected.pz_per_scatola ?? 0)} pz/scatola
+                </div>
+              </div>
+
+              {/* Scorta minima */}
+              <div className="rounded-3xl border border-neutral-200 p-4">
+                <div className="text-sm font-semibold">Scorta minima</div>
+                <div className="mt-2 flex gap-2">
                   <input
-                    value={delta}
-                    onChange={(e) => setDelta(e.target.value.replace(/[^\d]/g, ""))}
+                    value={editMin}
+                    onChange={(e) => setEditMin(e.target.value.replace(/[^\d]/g, ""))}
                     inputMode="numeric"
                     placeholder="es. 2"
-                    className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                    className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
                   />
-
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => applyDelta("+")}
-                      className="rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
-                    >
-                      + Carico
-                    </button>
-                    <button
-                      onClick={() => applyDelta("-")}
-                      className="rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm active:scale-[0.99]"
-                    >
-                      − Scarico
-                    </button>
-                  </div>
-
                   <button
-                    onClick={() => deleteArticolo(selected.id)}
-                    className="mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600 hover:bg-neutral-50"
+                    onClick={saveScortaMinima}
+                    className="shrink-0 rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
                   >
-                    Elimina articolo
+                    Salva
                   </button>
                 </div>
+                <div className="mt-2 text-xs text-neutral-500">
+                  Critico se scatole ≤ minima, Basso fino a minima + 3
+                </div>
               </div>
-            )}
-          </section>
-        </div>
 
-        {/* Aggiungi articolo */}
-        <section className="mt-4 rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-base font-semibold">Aggiungi articolo</h2>
+              {/* Movimento */}
+              <div className="rounded-3xl border border-neutral-200 p-4">
+                <label className="block text-xs text-neutral-500">
+                  Quantità scatole da aggiungere / togliere
+                </label>
+                <input
+                  value={delta}
+                  onChange={(e) => setDelta(e.target.value.replace(/[^\d]/g, ""))}
+                  inputMode="numeric"
+                  placeholder="es. 2"
+                  className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                />
 
-          <div className="grid gap-2 md:grid-cols-4">
-            <input
-              value={cod}
-              onChange={(e) => setCod(e.target.value)}
-              placeholder="Cod articolo (AC221029)"
-              className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400"
-            />
-            <input
-              value={desc}
-              onChange={(e) => setDesc(e.target.value)}
-              placeholder="Descrizione (Avana cordino 22+10x29)"
-              className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400 md:col-span-2"
-            />
-            <div className="grid grid-cols-2 gap-2">
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => applyDelta("+")}
+                    className="rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
+                  >
+                    + Carico
+                  </button>
+                  <button
+                    onClick={() => applyDelta("-")}
+                    className="rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm active:scale-[0.99]"
+                  >
+                    − Scarico
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => deleteArticolo(selected.id)}
+                  className="mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600 hover:bg-neutral-50"
+                >
+                  Elimina articolo
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Modal Nuovo Articolo */}
+      {isAddOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-4 md:items-center">
+          <div className="w-full max-w-xl rounded-3xl border border-neutral-200 bg-white p-4 shadow-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-base font-semibold">Nuovo articolo</div>
+              <button
+                onClick={() => setIsAddOpen(false)}
+                className="rounded-2xl border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+              >
+                Chiudi
+              </button>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-2">
+              <input
+                value={cod}
+                onChange={(e) => setCod(e.target.value)}
+                placeholder="Cod articolo (AC221029)"
+                className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400"
+              />
               <input
                 value={pzScatola}
                 onChange={(e) => setPzScatola(e.target.value.replace(/[^\d]/g, ""))}
                 inputMode="numeric"
-                placeholder="Pz/scatola"
+                placeholder="Pz per scatola"
                 className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400"
+              />
+              <input
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
+                placeholder="Descrizione (Avana cordino 22+10x29)"
+                className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400 md:col-span-2"
               />
               <input
                 value={scatoleInv}
                 onChange={(e) => setScatoleInv(e.target.value.replace(/[^\d]/g, ""))}
                 inputMode="numeric"
-                placeholder="Scatole inv."
+                placeholder="Scatole in inventario (es. 10)"
+                className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400"
+              />
+              <input
+                value={scortaMin}
+                onChange={(e) => setScortaMin(e.target.value.replace(/[^\d]/g, ""))}
+                inputMode="numeric"
+                placeholder="Scorta minima (es. 2)"
                 className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400"
               />
             </div>
-          </div>
 
-          <button
-            onClick={addArticolo}
-            className="mt-3 rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
-          >
-            Salva articolo
-          </button>
-        </section>
-      </div>
+            <button
+              onClick={addArticolo}
+              className="mt-3 w-full rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
+            >
+              Salva articolo
+            </button>
+
+            <div className="mt-2 text-center text-xs text-neutral-500">
+              Stato scorte automatico con scorta minima
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
