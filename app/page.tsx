@@ -871,8 +871,6 @@ function TopTabs() {
                       )}
                     </div>
                   </div>
-            
-          </>
         )}
 
         {/* ORDINI */}
@@ -1199,6 +1197,7 @@ function TopTabs() {
     </main>
   );
 }
+
 
 
 
