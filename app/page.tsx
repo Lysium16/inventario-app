@@ -781,7 +781,7 @@ function TopTabs() {
                     {/* Impostazioni */}
                     <div className="rounded-3xl border border-neutral-200 p-4 space-y-3">
                       <button
-                        onClick={() => if (!simpleView) { setShowAdvanced(!showAdvanced) }}
+                        onClick={() => { if (!simpleView) { setShowAdvanced(!showAdvanced); } }}
                         className="flex w-full items-center justify-between rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50"
                       >
                         <span>Impostazioni</span>
@@ -1202,6 +1202,7 @@ function TopTabs() {
     </main>
   );
 }
+
 
 
 
