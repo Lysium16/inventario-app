@@ -97,6 +97,9 @@ function parseMisura(full: string) {
 }
 
 // PDF: solo MISURA / DESCRIZIONE / PEZZI
+            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-base font-semibold">Carrello ordine</h2>
 function exportOrdinePdf(articoli: Articolo[], carrello: Record<string, number>) {
   const rows: Array<[string, string, string]> = [];
 
