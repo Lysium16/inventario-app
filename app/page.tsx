@@ -871,7 +871,6 @@ function TopTabs() {
                       )}
                     </div>
                   </div>
-</section>
             </div>
           </>
         )}
@@ -1200,6 +1199,7 @@ function TopTabs() {
     </main>
   );
 }
+
 
 
 
