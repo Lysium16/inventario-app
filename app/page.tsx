@@ -356,6 +356,63 @@ export default function Home() {
     return rows;
   }, [carrello, articoli]);
 
+  // ===== Dashboard calcoli =====
+  const dash = useMemo(() => {
+    const vis = articoli.filter((a) => a.visibile_magazzino !== false);
+    const valoreMagazzino = vis.reduce((acc, a) => acc + clampInt(safeNum(a.scatole_inventario)) * safeNum(a.prezzo_costo ?? 0), 0);
+    const valoreDisponibili = vis.reduce((acc, a) => acc + disponibili(a) * safeNum(a.prezzo_costo ?? 0), 0);
+
+    const critici = vis
+      .filter((a) => statoScorta(a) === "critico")
+      .slice(0, 12);
+
+    const topDeficit = vis
+      .map((a) => {
+        const obj = clampInt(safeNum(a.scorta_obiettivo ?? 0));
+        const disp = disponibili(a);
+        const inArr = clampInt(safeNum(a.in_arrivo ?? 0));
+        const deficit = Math.max(0, obj - (disp + inArr));
+        return { a, obj, disp, inArr, deficit, stato: statoScorta(a) };
+      })
+      .filter((x) => x.deficit > 0)
+      .sort((x, y) => y.deficit - x.deficit)
+      .slice(0, 12);
+
+    return { valoreMagazzino, valoreDisponibili, critici, topDeficit };
+  }, [articoli]);
+
+  // ===== Arrivi =====
+  async function setInArrivo(id: string, qta: number) {
+    const x = clampInt(qta);
+    const { error } = await supabase.from("articoli").update({ in_arrivo: x }).eq("id", id);
+    if (error) return alert(error.message);
+    await loadArticoli();
+  }
+
+  async function segnaArrivato(id: string, qta: number) {
+    const x = clampInt(qta);
+    if (x <= 0) return;
+
+    const a = articoli.find((z) => z.id === id);
+    if (!a) return;
+
+    const curArr = clampInt(safeNum(a.in_arrivo ?? 0));
+    if (curArr <= 0) return;
+
+    const take = Math.min(curArr, x);
+    const nextArr = curArr - take;
+    const nextFis = clampInt(safeNum(a.scatole_inventario)) + take;
+
+    const { error } = await supabase
+      .from("articoli")
+      .update({ in_arrivo: nextArr, scatole_inventario: nextFis })
+      .eq("id", id);
+
+    if (error) return alert(error.message);
+
+    await loadArticoli();
+  }
+
   // ===== UI =====
   function TopTabs() {
     return (
@@ -801,42 +858,165 @@ export default function Home() {
           </div>
         )}
 
-        {/* ARRIVI (placeholder elegante, logica completa la facciamo nel blocco 2) */}
+        {/* ARRIVI */}
         {tab === "arrivi" && (
           <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-2 text-base font-semibold">Arrivi</h2>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-semibold">Arrivi</h2>
+              <div className="text-xs text-neutral-500">
+                Totale in arrivo: <span className="font-semibold">{inArrivoTot()}</span> scatole
+              </div>
+            </div>
+
             <p className="text-sm text-neutral-500">
-              Qui gestiamo le scatole “in arrivo”: quando arrivano, un tasto le sposta nel fisico automaticamente.
+              Qui segni quante scatole sono <span className="font-semibold">in arrivo</span>. Quando arrivano, premi
+              “Segna arrivato”: le sposta nel fisico da sola.
             </p>
-            <div className="mt-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-700">
-              (Arrivi verrà completato nel prossimo blocco.)
+
+            <div className="mt-4 space-y-2">
+              {filtered.length === 0 ? (
+                <p className="text-sm text-neutral-500">Nessun articolo.</p>
+              ) : (
+                filtered.map((a) => {
+                  const arr = clampInt(safeNum(a.in_arrivo ?? 0));
+                  return (
+                    <div key={a.id} className="rounded-2xl border border-neutral-200 bg-white p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold">{a.descrizione}</div>
+                          <div className="text-xs text-neutral-500">{a.cod_articolo}</div>
+                          <div className="mt-1 text-xs text-neutral-500">
+                            Fisico: {clampInt(safeNum(a.scatole_inventario))} • Impegnate: {clampInt(safeNum(a.scatole_impegnate ?? 0))} • Disponibili: {disponibili(a)}
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-lg font-semibold">{arr}</div>
+                          <div className="text-xs text-neutral-500">in arrivo</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 grid gap-2 md:grid-cols-3">
+                        <div className="md:col-span-2">
+                          <div className="text-xs text-neutral-500">Imposta in arrivo (scatole)</div>
+                          <input
+                            defaultValue={String(arr)}
+                            onBlur={(e) => setInArrivo(a.id, parseInt((e.target.value || "0").replace(/[^\d]/g, ""), 10))}
+                            inputMode="numeric"
+                            className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                          />
+                          <div className="mt-1 text-xs text-neutral-400">
+                            (Scrivi e poi esci dal campo: salva da solo, così la mamma non deve premere 12 bottoni.)
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col justify-end gap-2">
+                          <button
+                            onClick={() => segnaArrivato(a.id, 999999)}
+                            disabled={arr <= 0}
+                            className="rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm disabled:opacity-40"
+                            style={{ backgroundColor: ACCENT }}
+                          >
+                            Segna arrivato
+                          </button>
+                          <button
+                            onClick={() => setInArrivo(a.id, 0)}
+                            className="rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm"
+                          >
+                            Azzera
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </section>
         )}
 
-        {/* DASHBOARD (placeholder, dati nel blocco 2) */}
+        {/* DASHBOARD */}
         {tab === "dashboard" && (
           <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-2 text-base font-semibold">Dashboard (solo per te)</h2>
-            <p className="text-sm text-neutral-500">
-              Qui mettiamo: valore magazzino, valore disponibili, top critici, trend ordini.
-            </p>
-            <div className="mt-3 grid gap-2 md:grid-cols-3">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-semibold">Dashboard</h2>
+              <div className="text-xs text-neutral-500">Numeri e priorità (senza fronzoli, ma con stile)</div>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-3">
               <div className="rounded-2xl border border-neutral-200 bg-white p-3">
                 <div className="text-xs text-neutral-500">Valore magazzino (fisico)</div>
-                <div className="text-xl font-semibold">{fmtEur(0)}</div>
+                <div className="text-xl font-semibold">{fmtEur(dash.valoreMagazzino)}</div>
               </div>
               <div className="rounded-2xl border border-neutral-200 bg-white p-3">
                 <div className="text-xs text-neutral-500">Valore disponibili</div>
-                <div className="text-xl font-semibold">{fmtEur(0)}</div>
+                <div className="text-xl font-semibold">{fmtEur(dash.valoreDisponibili)}</div>
               </div>
               <div className="rounded-2xl border border-neutral-200 bg-white p-3">
                 <div className="text-xs text-neutral-500">Critici</div>
-                <div className="text-xl font-semibold">{criticiCount}</div>
+                <div className="text-xl font-semibold">{dash.critici.length}</div>
               </div>
             </div>
-            <div className="mt-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-700">
-              (Dashboard verrà completata nel prossimo blocco.)
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div className="rounded-3xl border border-neutral-200 bg-white p-4">
+                <div className="mb-2 text-sm font-semibold">Articoli critici</div>
+                {dash.critici.length === 0 ? (
+                  <p className="text-sm text-neutral-500">Nessun critico. Miracolo.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {dash.critici.map((a) => (
+                      <div key={a.id} className={`rounded-2xl border border-neutral-200 p-3 ${cardClass(a)}`}>
+                        <div className="text-sm font-semibold">{a.descrizione}</div>
+                        <div className="text-xs text-neutral-500">{a.cod_articolo}</div>
+                        <div className="mt-1 text-xs text-neutral-500">
+                          Disponibili: {disponibili(a)} • Fisico: {clampInt(safeNum(a.scatole_inventario))} • Impegnate: {clampInt(safeNum(a.scatole_impegnate ?? 0))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-3xl border border-neutral-200 bg-white p-4">
+                <div className="mb-2 text-sm font-semibold">Top da ordinare (deficit vs obiettivo)</div>
+                {dash.topDeficit.length === 0 ? (
+                  <p className="text-sm text-neutral-500">Nessun deficit (o non hai obiettivi impostati).</p>
+                ) : (
+                  <div className="space-y-2">
+                    {dash.topDeficit.map((x) => (
+                      <div key={x.a.id} className={`rounded-2xl border border-neutral-200 p-3 ${x.stato === "critico" ? "card-critico" : x.stato === "basso" ? "card-basso" : ""}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-semibold">{x.a.descrizione}</div>
+                            <div className="text-xs text-neutral-500">{x.a.cod_articolo}</div>
+                            <div className="mt-1 text-xs text-neutral-500">
+                              Disponibili {x.disp} • In arrivo {x.inArr} • Obiettivo {x.obj}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-semibold">{x.deficit}</div>
+                            <div className="text-xs text-neutral-500">scatole</div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex items-center justify-between gap-2">
+                          <div className="text-xs text-neutral-500">
+                            Costo stimato: {fmtEur(x.deficit * safeNum(x.a.prezzo_costo ?? 0))}
+                          </div>
+                          <button
+                            onClick={() => setCarrelloQty(x.a.id, x.deficit)}
+                            className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm"
+                            style={{ backgroundColor: ACCENT }}
+                          >
+                            Aggiungi al carrello
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </section>
         )}
@@ -857,3 +1037,4 @@ export default function Home() {
     </main>
   );
 }
+
