@@ -145,7 +145,7 @@ type Tab = "magazzino" | "ordini" | "arrivi" | "dashboard";
 
 export default function Page() {
   const [tab, setTab] = useState<Tab>("magazzino");
-const pin = window.prompt("Modalità Nikolas: inserisci PIN");
+  const [simpleView, setSimpleView] = useState(false);const pin = window.prompt("Modalità Nikolas: inserisci PIN");
     // PIN semplice: cambialo qui se vuoi
     if (pin === "diabolica") {
       localStorage.setItem("nikolas_dashboard", "1");
@@ -237,7 +237,7 @@ const pin = window.prompt("Modalità Nikolas: inserisci PIN");
 
     setDelta("");
     setImpDelta("");
-    setShowAdvanced(false);
+    if (!simpleView) { setShowAdvanced(false) };
   }, [articoli]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const listMagazzino = useMemo(() => {
@@ -579,6 +579,28 @@ function TopTabs() {
       </div>
     </div>
   )}
+<div className="mx-auto max-w-6xl px-4 pb-3">
+  <div className="rounded-2xl border px-4 py-3 text-sm"
+    style={{ borderColor: DOMOBAGS_GREEN, backgroundColor: "#E8F7F7", color: "#064B4D" }}>
+    <strong>Modalità Mamma</strong><br/>
+    tocca solo i pulsanti grandi.<br/>
+    Se sparisce qualcosa, non è un bug: è la tecnologia che si difende.
+  </div>
+
+  <div className="mt-2 flex items-center justify-between gap-3">
+    <div className="text-xs text-neutral-500">
+      Vista semplice: nasconde le cose “da Nikolas”, lascia solo quello che serve.
+    </div>
+
+    <button
+      onClick={() => setSimpleView(v => !v)}
+      className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm"
+      style={{ backgroundColor: DOMOBAGS_GREEN }}
+    >
+      {simpleView ? "Vista completa" : "Vista semplice"}
+    </button>
+  </div>
+</div>
 </header>
 
       <div className="mx-auto max-w-6xl px-4 py-6">
@@ -759,7 +781,7 @@ function TopTabs() {
                     {/* Impostazioni */}
                     <div className="rounded-3xl border border-neutral-200 p-4 space-y-3">
                       <button
-                        onClick={() => setShowAdvanced(!showAdvanced)}
+                        onClick={() => if (!simpleView) { setShowAdvanced(!showAdvanced) }}
                         className="flex w-full items-center justify-between rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50"
                       >
                         <span>Impostazioni</span>
@@ -1180,6 +1202,7 @@ function TopTabs() {
     </main>
   );
 }
+
 
 
 
