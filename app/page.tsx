@@ -525,20 +525,34 @@ export default function Home() {
                         selected?.id === a.id ? "border-neutral-900 bg-neutral-50" : "border-neutral-200 bg-white hover:bg-neutral-50"
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-semibold">{a.descrizione}</div>
+                      <div className="flex w-full items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold text-neutral-900">{a.descrizione}</div>
                           <div className="text-xs text-neutral-500">{a.cod_articolo}</div>
                         </div>
-
-                        <div className="text-right">
-                          <div className="text-lg font-semibold">{disponibili(a)}</div>
-                          <div className="text-xs text-neutral-500">disponibili</div>
+                      
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="rounded-2xl px-3 py-2" style={{ background: "rgba(44,184,179,0.14)" }}>
+                            <div className="text-[10px] uppercase tracking-wide text-neutral-700">Magazzino</div>
+                            <div className="text-2xl font-extrabold" style={{ color: ACCENT }}>
+                              {clampInt(safeNum(a.scatole_inventario))}
+                            </div>
+                          </div>
+                      
+                          <div className="rounded-2xl px-3 py-2" style={{ background: "rgba(234,179,8,0.20)" }}>
+                            <div className="text-[10px] uppercase tracking-wide text-neutral-700">Impegnate</div>
+                            <div className="text-2xl font-extrabold" style={{ color: "rgb(161 98 7)" }}>
+                              {clampInt(safeNum(a.scatole_impegnate))}
+                            </div>
+                          </div>
+                      
+                          <div className="rounded-2xl px-3 py-2" style={{ background: "rgba(59,130,246,0.18)" }}>
+                            <div className="text-[10px] uppercase tracking-wide text-neutral-700">In arrivo</div>
+                            <div className="text-2xl font-extrabold" style={{ color: "rgb(29 78 216)" }}>
+                              {clampInt(safeNum(a.in_arrivo))}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="mt-2 text-xs text-neutral-500">
-                        Fisico: {a.scatole_inventario} • Impegnate: {clampInt(safeNum(a.scatole_impegnate ?? 0))} • {pezziTotaliFisici(a)} pz fisici
                       </div>
                     </button>
                   ))}
