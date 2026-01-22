@@ -541,7 +541,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
           <TopTabs />
         
       {/* ADMIN_CREATE_ARTICOLO_PATCH_UI */}
-      {isAdmin && (
+      {(
         <div className="mt-3 mx-auto max-w-6xl px-4">
           <div className="flex items-center justify-end">
             <button
@@ -1324,6 +1324,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
     </main>
   );
 }
+
 
 
 
