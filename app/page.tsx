@@ -173,7 +173,8 @@ const [tab, setTab] = useState<Tab>("magazzino");
   const [articoli, setArticoli] = useState<Articolo[]>([]);
   const [query, setQuery] = useState("");
   // QUICK_ADD_ARTICOLO
-  const [qaCod, setQaCod] = useState("");
+  const [qaCod, setQaCod] = useState("");
+  const [qaDescr, setQaDescr] = useState("");
   const [qaDesc, setQaDesc] = useState("");
   const [qaMin, setQaMin] = useState(0);
   const [qaInv, setQaInv] = useState(0);
@@ -1340,6 +1341,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
     </main>
   );
 }
+
 
 
 
