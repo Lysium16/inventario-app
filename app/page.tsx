@@ -175,7 +175,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
   // semplice / avanzato
   const [simpleView, setSimpleView] = useState(true);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(true);
 
   // selezione
   const [selected, setSelected] = useState<Articolo | null>(null);
@@ -626,7 +626,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                   Modalità semplice: mostra solo disponibilità e pulsanti essenziali.
                 </div>
                 <button
-                  onClick={() => { setSimpleView((v) => !v); setShowAdvanced(false); }}
+                  onClick={() => { setSimpleView((v) => !v); setShowAdvanced(true); }}
                   className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm"
                   style={{ backgroundColor: ACCENT }}
                 >
@@ -1201,6 +1201,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
     </main>
   );
 }
+
 
 
 
