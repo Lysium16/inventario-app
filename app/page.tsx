@@ -60,11 +60,21 @@ function disponibili(a: Articolo) {
   return Math.max(0, fisiche - imp);
 }
 
-function statoScorta(a: Articolo) {
-  const disp = disponibili(a);
-  const min = clampInt(safeNum(a.scorta_minima));
-  if (disp <= 0) return "critico";
-  if (min > 0 && disp <= min) return "basso";
+function statoScorta(a: any): "ok" | "basso" | "critico" {
+  // Stato basato su DISPONIBILI (inventario - impegnate)
+  const inv = clampInt(safeNum(a?.scatole_inventario ?? 0));
+  const imp = clampInt(safeNum(a?.scatole_impegnate ?? 0));
+  const q = Math.max(0, inv - imp);
+
+  const min = clampInt(safeNum(a?.scorta_minima ?? 0));
+  if (min <= 0) return "ok";
+
+  // soglia verde = min + metà(min) (arrotondata su)
+  const half = Math.ceil(min / 2);
+  const green = min + half;
+
+  if (q < min) return "critico";
+  if (q < green) return "basso";
   return "ok";
 }
 
@@ -1191,5 +1201,6 @@ const [tab, setTab] = useState<Tab>("magazzino");
     </main>
   );
 }
+
 
 
