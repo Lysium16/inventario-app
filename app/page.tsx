@@ -142,7 +142,23 @@ function exportOrdinePdf(articoli: Articolo[], carrello: Record<string, number>)
 }
 
 export default function Home() {
-  const [tab, setTab] = useState<Tab>("magazzino");
+  
+
+  // ADMIN_CREATE_ARTICOLO_PATCH
+  // Admin invisibile: attivo SOLO con ?admin=1 (lei non lo vedrà mai)
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [openNewArt, setOpenNewArt] = useState(false);
+  const [newCod, setNewCod] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newMin, setNewMin] = useState<number>(0);
+
+  useEffect(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      setIsAdmin(p.get("admin") === "1");
+    } catch {}
+  }, []);
+const [tab, setTab] = useState<Tab>("magazzino");
   const [loading, setLoading] = useState(true);
   const [articoli, setArticoli] = useState<Articolo[]>([]);
   const [query, setQuery] = useState("");
@@ -462,7 +478,131 @@ export default function Home() {
           </div>
 
           <TopTabs />
+        
+      {/* ADMIN_CREATE_ARTICOLO_PATCH_UI */}
+      {isAdmin && (
+        <div className="mt-3 mx-auto max-w-6xl px-4">
+          <div className="flex items-center justify-end">
+            <button
+              onClick={() => setOpenNewArt(true)}
+              className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              style={{ backgroundColor: ACCENT }}
+              title="Solo admin (?admin=1)"
+            >
+              + Nuovo articolo
+            </button>
+          </div>
         </div>
+      )}
+
+      {isAdmin && openNewArt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-base font-semibold">Nuovo articolo</div>
+                <div className="text-xs text-neutral-500">Visibile solo in modalità admin (?admin=1)</div>
+              </div>
+              <button
+                onClick={() => setOpenNewArt(false)}
+                className="rounded-2xl px-3 py-2 text-sm font-semibold border border-neutral-200 bg-white"
+              >
+                Chiudi
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <div>
+                <div className="text-xs font-semibold text-neutral-700">Codice / Misura</div>
+                <input
+                  value={newCod}
+                  onChange={(e) => setNewCod(e.target.value)}
+                  className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                  placeholder="es. 32x45 / COD123"
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-neutral-700">Descrizione</div>
+                <input
+                  value={newDesc}
+                  onChange={(e) => setNewDesc(e.target.value)}
+                  className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                  placeholder="es. Shopper carta avana..."
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-neutral-700">Scorta minima</div>
+                <input
+                  type="number"
+                  value={newMin}
+                  onChange={(e) => setNewMin(Number(e.target.value))}
+                  className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                />
+              </div>
+
+              <div className="mt-2 flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setOpenNewArt(false)}
+                  className="rounded-2xl px-4 py-2 text-sm font-semibold border border-neutral-200 bg-white"
+                >
+                  Annulla
+                </button>
+
+                <button
+                  onClick={async () => {
+                    try {
+                      const cod = (newCod || "").trim();
+                      const desc = (newDesc || "").trim();
+                      const min = Number(newMin || 0);
+
+                      if (!cod || !desc) {
+                        alert("Codice e descrizione sono obbligatori.");
+                        return;
+                      }
+
+                      // Inserimento base: inventario=0, impegnate=0, in_arrivo=0
+                      const payload: any = {
+                        cod_articolo: cod,
+                        descrizione: desc,
+                        scorta_minima: min,
+                        scatole_inventario: 0,
+                        scatole_impegnate: 0,
+                        in_arrivo: 0,
+                      };
+
+                      const { data, error } = await supabase
+                        .from("articoli")
+                        .insert([payload])
+                        .select()
+                        .single();
+
+                      if (error) throw error;
+
+                      // Aggiorna UI locale
+                      setArticoli((prev: any) => [data, ...(prev || [])]);
+                      setSelected(data);
+                      setOpenNewArt(false);
+                      setNewCod("");
+                      setNewDesc("");
+                      setNewMin(0);
+                    } catch (e: any) {
+                      console.error(e);
+                      alert("Errore inserimento articolo: " + (e?.message ?? String(e)));
+                    }
+                  }}
+                  className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm"
+                  style={{ backgroundColor: ACCENT }}
+                >
+                  Salva
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+</div>
 
         {tab === "magazzino" && (
           <div className="mx-auto max-w-6xl px-4 pb-3">
@@ -1051,4 +1191,5 @@ export default function Home() {
     </main>
   );
 }
+
 
