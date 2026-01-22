@@ -173,7 +173,8 @@ const [tab, setTab] = useState<Tab>("magazzino");
   const [articoli, setArticoli] = useState<Articolo[]>([]);
   const [query, setQuery] = useState("");
   // QUICK_ADD_ARTICOLO
-  const [qaCod, setQaCod] = useState("");
+  const [qaCod, setQaCod] = useState("");
+
   const [qaDescr, setQaDescr] = useState("");
   const [qaDesc, setQaDesc] = useState("");
   const [qaMin, setQaMin] = useState(0);
@@ -529,7 +530,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-32 overflow-hidden rounded-xl bg-white">
-              <img src="/domobags-logo.png" alt="Logo" className="h-full w-full object-contain" />
+              <img src="/domobags-logo.png" alt="Logo" className="h-full w-full object-contain min-w-0" />
             </div>
             <div>
               <div className="text-lg font-semibold tracking-tight text-neutral-900">
@@ -559,7 +560,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
       {isAdmin && openNewArt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-xl">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-xl min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-base font-semibold">Nuovo articolo</div>
@@ -579,7 +580,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                 <input
                   value={newCod}
                   onChange={(e) => setNewCod(e.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                  className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 min-w-0"
                   placeholder="es. 32x45 / COD123"
                 />
               </div>
@@ -589,7 +590,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                 <input
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                  className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 min-w-0"
                   placeholder="es. Shopper carta avana..."
                 />
               </div>
@@ -600,7 +601,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                   type="number"
                   value={newMin}
                   onChange={(e) => setNewMin(Number(e.target.value))}
-                  className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                  className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 min-w-0"
                 />
               </div>
 
@@ -697,7 +698,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Cerca per misura/codice o descrizione…"
-              className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+              className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400 min-w-0"
             />
           </div>
         )}
@@ -718,13 +719,13 @@ const [tab, setTab] = useState<Tab>("magazzino");
                     value={qaCod}
                     onChange={(e) => setQaCod(e.target.value)}
                     placeholder="Misura / Codice (es. 32x42)"
-                    className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400"
+                    className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
                   />
                   <input
                     value={qaDesc}
                     onChange={(e) => setQaDesc(e.target.value)}
                     placeholder="Descrizione"
-                    className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400"
+                    className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
                   />
                 </div>
 
@@ -735,7 +736,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       type="number"
                       value={qaMin}
                       onChange={(e) => setQaMin(parseInt(String((e.target as any)?.value ?? "0").replace(/[^\d-]/g,"") || "0", 10) || 0)}
-                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none"
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none min-w-0"
                     />
                   </div>
                   <div>
@@ -744,7 +745,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       type="number"
                       value={qaInv}
                       onChange={(e) => setQaInv(Number(e.target.value))}
-                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none"
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none min-w-0"
                     />
                   </div>
                   <div>
@@ -753,7 +754,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       type="number"
                       value={qaImp}
                       onChange={(e) => setQaImp(Number(e.target.value))}
-                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none"
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none min-w-0"
                     />
                   </div>
                   <div>
@@ -762,7 +763,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       type="number"
                       value={qaArr}
                       onChange={(e) => setQaArr(Number(e.target.value))}
-                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none"
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none min-w-0"
                     />
                   </div>
                 </div>
@@ -798,7 +799,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                         selected?.id === a.id ? "border-neutral-900 bg-neutral-50" : "border-neutral-200 bg-white hover:bg-neutral-50"
                       }`}
                     >
-                      <div className="flex w-full items-center justify-between gap-4">
+                      <div className="flex w-full items-center justify-between gap-4 min-w-0">
                         <div className="min-w-0">
                           <div className="truncate text-sm font-semibold text-neutral-900">{a.descrizione}</div>
                           <div className="text-xs text-neutral-500">{a.cod_articolo}</div>
@@ -869,7 +870,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       onChange={(e) => setDeltaFisico(e.target.value.replace(/[^\d]/g, ""))}
                       inputMode="numeric"
                       placeholder="es. 2"
-                      className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                      className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400 min-w-0"
                     />
 
                     <div className="mt-3 grid grid-cols-2 gap-2">
@@ -897,7 +898,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       onChange={(e) => setDeltaImp(e.target.value.replace(/[^\d]/g, ""))}
                       inputMode="numeric"
                       placeholder="es. 5"
-                      className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                      className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400 min-w-0"
                     />
 
                     <div className="mt-3 grid grid-cols-2 gap-2">
@@ -919,7 +920,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                     {!simpleView && (
                       <button
                         onClick={() => setShowAdvanced((v) => !v)}
-                        className="mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50"
+                        className="mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50 min-w-0"
                       >
                         {showAdvanced ? "Nascondi impostazioni" : "Impostazioni (avanzate)"}
                       </button>
@@ -935,7 +936,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                                 value={editCosto}
                                 onChange={(e) => setEditCosto(e.target.value.replace(/[^\d.,]/g, ""))}
                                 inputMode="decimal"
-                                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400 min-w-0"
                               />
                               <button
                                 onClick={() => { updateSelected({ prezzo_costo: parseFloat((editCosto || "0").replace(",", ".")) }); setEditCosto(""); }}
@@ -954,7 +955,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                                 value={editMin}
                                 onChange={(e) => setEditMin(e.target.value.replace(/[^\d]/g, ""))}
                                 inputMode="numeric"
-                                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400 min-w-0"
                               />
                               <button
                                 onClick={() => { updateSelected({ scorta_minima: parseInt(editMin || "0", 10) }); setEditMin(""); }}
@@ -973,7 +974,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                                 value={editObj}
                                 onChange={(e) => setEditObj(e.target.value.replace(/[^\d]/g, ""))}
                                 inputMode="numeric"
-                                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400 min-w-0"
                               />
                               <button
                                 onClick={() => { updateSelected({ scorta_obiettivo: parseInt(editObj || "0", 10) }); setEditObj(""); }}
@@ -1184,13 +1185,13 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       </div>
 
                       <div className="mt-3 grid gap-2 md:grid-cols-3">
-                        <div className="md:col-span-2 min-w-0 overflow-hidden">
+                        <div className=" min-w-0 overflow-hidden md:col-span-2 min-w-0 overflow-hidden">
                           <div className="text-xs text-neutral-500">Imposta in arrivo (scatole)</div>
                           <input
                             defaultValue={String(arr)}
                             onBlur={(e) => setInArrivo(a.id, parseInt((e.target.value || "0").replace(/[^\d]/g, ""), 10))}
                             inputMode="numeric"
-                            className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
+                            className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400 min-w-0"
                           />
                           <div className="mt-1 text-xs text-neutral-400 hidden">
                             (Scrivi e poi esci dal campo: salva da solo, così la mamma non deve premere 12 bottoni.)
