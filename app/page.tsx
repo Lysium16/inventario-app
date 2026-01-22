@@ -670,7 +670,6 @@ const [tab, setTab] = useState<Tab>("magazzino");
             <div className="rounded-2xl border px-4 py-3 text-sm hidden" style={{ borderColor: "rgba(44,184,179,0.35)", background: "rgba(44,184,179,0.06)" }}>
               <div className="font-semibold text-neutral-900 hidden">Nota per la diabolica mamma</div>
               <div className="text-neutral-700">
-                È talmente semplice che anche tu riesci a usarlo. Se sbagli… è volontà divina, non colpa del programma.
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <div className="text-xs text-neutral-600">
@@ -678,7 +677,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                 </div>
                 <button
                   onClick={() => { setSimpleView((v) => !v); setShowAdvanced(true); }}
-                  className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm hidden"
+                  className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm hidden hidden"
                   style={{ backgroundColor: ACCENT }}
                 >
                   {simpleView ? "Passa ad Avanzato" : "Passa a Semplice"}
@@ -704,7 +703,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
         {/* MAGAZZINO */}
         {tab === "magazzino" && (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-[420px_1fr]">
             {/* UI_QUICK_ADD_ARTICOLO */}
             <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
@@ -713,7 +712,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
               </div>
 
               <div className="grid gap-3">
-                <div className="grid gap-2 md:grid-cols-2">
+                <div className="grid gap-2 md:grid-cols-[420px_1fr]">
                   <input
                     value={qaCod}
                     onChange={(e) => setQaCod(e.target.value)}
@@ -927,7 +926,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
                     {!simpleView && showAdvanced && (
                       <div className="mt-3 rounded-2xl border border-neutral-200 bg-white p-3 space-y-3">
-                        <div className="grid gap-2 md:grid-cols-2">
+                        <div className="grid gap-2 md:grid-cols-[420px_1fr]">
                           <div>
                             <div className="text-sm font-semibold">Costo (€/scatola)</div>
                             <div className="mt-2 flex gap-2">
@@ -1013,7 +1012,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
         {/* ORDINI */}
         {tab === "ordini" && (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-[420px_1fr]">
             <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-base font-semibold">Suggeriti</h2>
@@ -1245,7 +1244,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
               </div>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="mt-4 grid gap-4 md:grid-cols-[420px_1fr]">
               <div className="rounded-3xl border border-neutral-200 bg-white p-4">
                 <div className="mb-2 text-sm font-semibold">Articoli critici</div>
                 {dash.critici.length === 0 ? (
@@ -1341,6 +1340,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
     </main>
   );
 }
+
 
 
 
