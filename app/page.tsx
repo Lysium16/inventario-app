@@ -73,7 +73,7 @@ function statoScorta(a: any): "ok" | "basso" | "critico" {
   const half = Math.ceil(min / 2);
   const green = min + half;
 
-  if (q < min) return "critico";
+  if (q <= min) return "critico";
   if (q < green) return "basso";
   return "ok";
 }
@@ -1341,6 +1341,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
     </main>
   );
 }
+
 
 
 
