@@ -172,6 +172,57 @@ const [tab, setTab] = useState<Tab>("magazzino");
   const [loading, setLoading] = useState(true);
   const [articoli, setArticoli] = useState<Articolo[]>([]);
   const [query, setQuery] = useState("");
+  // QUICK_ADD_ARTICOLO
+  const [qaCod, setQaCod] = useState("");
+  const [qaDesc, setQaDesc] = useState("");
+  const [qaMin, setQaMin] = useState(0);
+  const [qaInv, setQaInv] = useState(0);
+  const [qaImp, setQaImp] = useState(0);
+  const [qaArr, setQaArr] = useState(0);
+  const [qaBusy, setQaBusy] = useState(false);
+
+  const quickAddArticolo = async () => {
+    if (qaBusy) return;
+    const cod = qaCod.trim();
+    const desc = qaDesc.trim();
+    if (!cod || !desc) {
+      alert("Inserisci almeno MISURA/CODICE e DESCRIZIONE.");
+      return;
+    }
+    setQaBusy(true);
+    try {
+      if (typeof (supabase as any)?.from !== "function") {
+        throw new Error("supabase non disponibile in scope: impossibile inserire articolo (fallback).");
+      }
+      const { error } = await (supabase as any)
+        .from("articoli")
+        .insert([{
+          cod_articolo: qaCod.trim(),
+          descrizione: qaDesc.trim(),
+          scatole_inventario: qaInv,
+          scatole_impegnate: qaImp,
+          in_arrivo: qaArr,
+          scorta_minima: qaMin,
+        }]);
+      if (error) throw error;
+      // dopo insert: ricarico in modo robusto (se esiste loadArticoli/fetchArticoli lo usa, altrimenti refresh)
+      if (typeof (loadArticoli as any) === "function") {
+        await (loadArticoli as any)();
+      } else {
+        // fallback universale
+        window.location.reload();
+      }
+
+      setQaCod("");
+      setQaDesc("");
+      setQaMin(0); setQaInv(0); setQaImp(0); setQaArr(0);
+    } catch (e: any) {
+      console.error(e);
+      alert("Errore inserimento articolo: " + (e?.message ?? String(e)));
+    } finally {
+      setQaBusy(false);
+    }
+  };
 
   // semplice / avanzato
   const [simpleView, setSimpleView] = useState(true);
@@ -654,6 +705,78 @@ const [tab, setTab] = useState<Tab>("magazzino");
         {/* MAGAZZINO */}
         {tab === "magazzino" && (
           <div className="grid gap-4 md:grid-cols-2">
+            {/* UI_QUICK_ADD_ARTICOLO */}
+            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-base font-semibold">Nuovo articolo</h2>
+                <span className="text-xs text-neutral-500">visibile a tutti</span>
+              </div>
+
+              <div className="grid gap-3">
+                <div className="grid gap-2 md:grid-cols-2">
+                  <input
+                    value={qaCod}
+                    onChange={(e) => setQaCod(e.target.value)}
+                    placeholder="Misura / Codice (es. 32x42)"
+                    className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400"
+                  />
+                  <input
+                    value={qaDesc}
+                    onChange={(e) => setQaDesc(e.target.value)}
+                    placeholder="Descrizione"
+                    className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400"
+                  />
+                </div>
+
+                <div className="grid gap-2 md:grid-cols-4">
+                  <div>
+                    <div className="mb-1 text-xs text-neutral-500">Scorta minima</div>
+                    <input
+                      type="number"
+                      value={qaMin}
+                      onChange={(e) => setQaMin(Number(e.target.value))}
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none"
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-1 text-xs text-neutral-500">Magazzino</div>
+                    <input
+                      type="number"
+                      value={qaInv}
+                      onChange={(e) => setQaInv(Number(e.target.value))}
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none"
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-1 text-xs text-neutral-500">Impegnate</div>
+                    <input
+                      type="number"
+                      value={qaImp}
+                      onChange={(e) => setQaImp(Number(e.target.value))}
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none"
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-1 text-xs text-neutral-500">In arrivo</div>
+                    <input
+                      type="number"
+                      value={qaArr}
+                      onChange={(e) => setQaArr(Number(e.target.value))}
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={quickAddArticolo}
+                  disabled={qaBusy}
+                  className="rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
+                  style={{ backgroundColor: ACCENT }}
+                >
+                  {qaBusy ? "Aggiungo..." : "Aggiungi articolo"}
+                </button>
+              </div>
+            </section>
             {/* Lista */}
             <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
@@ -1201,6 +1324,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
     </main>
   );
 }
+
 
 
 
