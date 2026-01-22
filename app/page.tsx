@@ -734,7 +734,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                     <input
                       type="number"
                       value={qaMin}
-                      onChange={(e) => setQaMin(Number(e.target.value))}
+                      onChange={(e) => setQaMin(parseInt(String((e.target as any)?.value ?? "0").replace(/[^\d-]/g,"") || "0", 10) || 0)}
                       className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none"
                     />
                   </div>
@@ -1184,7 +1184,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       </div>
 
                       <div className="mt-3 grid gap-2 md:grid-cols-3">
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-2 min-w-0 overflow-hidden">
                           <div className="text-xs text-neutral-500">Imposta in arrivo (scatole)</div>
                           <input
                             defaultValue={String(arr)}
@@ -1341,6 +1341,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
     </main>
   );
 }
+
 
 
 
