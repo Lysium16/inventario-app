@@ -666,9 +666,9 @@ const [tab, setTab] = useState<Tab>("magazzino");
 </div>
 
         {tab === "magazzino" && (
-          <div className="mx-auto max-w-6xl px-4 pb-3">
-            <div className="rounded-2xl border px-4 py-3 text-sm" style={{ borderColor: "rgba(44,184,179,0.35)", background: "rgba(44,184,179,0.06)" }}>
-              <div className="font-semibold text-neutral-900">Nota per la diabolica mamma</div>
+          <div className="mx-auto max-w-6xl px-4 pb-3 hidden">
+            <div className="rounded-2xl border px-4 py-3 text-sm hidden" style={{ borderColor: "rgba(44,184,179,0.35)", background: "rgba(44,184,179,0.06)" }}>
+              <div className="font-semibold text-neutral-900 hidden">Nota per la diabolica mamma</div>
               <div className="text-neutral-700">
                 È talmente semplice che anche tu riesci a usarlo. Se sbagli… è volontà divina, non colpa del programma.
               </div>
@@ -678,7 +678,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                 </div>
                 <button
                   onClick={() => { setSimpleView((v) => !v); setShowAdvanced(true); }}
-                  className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm"
+                  className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm hidden"
                   style={{ backgroundColor: ACCENT }}
                 >
                   {simpleView ? "Passa ad Avanzato" : "Passa a Semplice"}
@@ -1192,7 +1192,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                             inputMode="numeric"
                             className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400"
                           />
-                          <div className="mt-1 text-xs text-neutral-400">
+                          <div className="mt-1 text-xs text-neutral-400 hidden">
                             (Scrivi e poi esci dal campo: salva da solo, così la mamma non deve premere 12 bottoni.)
                           </div>
                         </div>
@@ -1320,10 +1320,28 @@ const [tab, setTab] = useState<Tab>("magazzino");
           box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.10) inset;
           background: linear-gradient(180deg, rgba(255, 247, 237, 0.75), rgba(255, 255, 255, 1));
         }
-      `}</style>
+      
+  /* __CP_STOCK_COLORS__ */
+  .card-critico{
+    border-color: rgba(239,68,68,0.90) !important;
+    box-shadow: 0 0 0 2px rgba(239,68,68,0.20) inset !important;
+    background: rgba(254,226,226,0.92) !important;
+  }
+  .card-basso{
+    border-color: rgba(234,179,8,0.95) !important;
+    box-shadow: 0 0 0 2px rgba(234,179,8,0.18) inset !important;
+    background: rgba(254,243,199,0.92) !important;
+  }
+  .card-ok{
+    border-color: rgba(16,185,129,0.70) !important;
+    box-shadow: 0 0 0 2px rgba(16,185,129,0.14) inset !important;
+    background: rgba(209,250,229,0.75) !important;
+  }
+`}</style>
     </main>
   );
 }
+
 
 
 
