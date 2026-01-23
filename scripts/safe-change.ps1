@@ -26,20 +26,26 @@ try {
   & $Action
 
   Write-Host "==> Build..."
-  npm.cmd run build
-
-  if ($LASTEXITCODE -ne 0) { throw "Build fallita (exit code $LASTEXITCODE)" }  Write-Host "==> OK: build riuscita. Backup conservato: $backupPath"
+  # Se un rollback ha lasciato node_modules vuoto, ripristina prima di buildare
+  if (-not (Test-Path ".\node_modules\.bin\next.cmd")) {
+    Write-Host "==> next non trovato (node_modules mancante). Eseguo: npm ci"
+    npm ci | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "npm ci fallito (exit code $LASTEXITCODE)" }
+  }
+  npm.cmd run build | Out-Host
+  if ($LASTEXITCODE -ne 0) { throw "Build fallita (exit code $LASTEXITCODE)" }
 }
 catch {
   Write-Host "==> ERRORE: build/modifica fallita. Rollback in corso..."
   Pop-Location
 
   # ripristino progetto dal backup (senza toccare .git)
-  robocopy $backupPath $ProjectPath /MIR /XD .git | Out-Null
+  robocopy $backupPath $ProjectPath /MIR /XD .git node_modules .next | Out-Null
 
   throw $_
 }
 finally {
   if ((Get-Location).Path -eq $ProjectPath) { Pop-Location }
 }
+
 

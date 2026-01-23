@@ -521,6 +521,47 @@ const [tab, setTab] = useState<Tab>("magazzino");
     );
   }
 
+  // ===== Dettaglio editor (sempre modificabile) =====
+  const [detForm, setDetForm] = useState<any>(null);
+  const [detDirty, setDetDirty] = useState(false);
+  const [detSaving, setDetSaving] = useState(false);
+
+  useEffect(() => {
+    if (!selected) { setDetForm(null); setDetDirty(false); return; }
+    setDetForm({ ...selected });
+    setDetDirty(false);
+  }, [selected]);
+
+  function setDet(key: string, value: any) {
+    setDetForm((prev: any) => ({ ...(prev || {}), [key]: value }));
+    setDetDirty(true);
+  }
+
+  async function salvaDettaglio() {
+    if (!selected || !detForm) return;
+    setDetSaving(true);
+    try {
+      const payload: any = {
+        descrizione: String(detForm.descrizione ?? ""),
+        cod_articolo: String(detForm.cod_articolo ?? ""),
+        pz_per_scatola: clampInt(safeNum(detForm.pz_per_scatola ?? 0)),
+        prezzo_costo: safeNum(String(detForm.prezzo_costo ?? "0").replace(",", ".")),
+        scorta_minima: clampInt(safeNum(detForm.scorta_minima ?? 0)),
+        scorta_obiettivo: clampInt(safeNum(detForm.scorta_obiettivo ?? 0)),
+        visibile_magazzino: !!detForm.visibile_magazzino,
+        scatole_inventario: clampInt(safeNum(detForm.scatole_inventario ?? 0)),
+        scatole_impegnate: clampInt(safeNum(detForm.scatole_impegnate ?? 0)),
+        in_arrivo: clampInt(safeNum(detForm.in_arrivo ?? 0)),
+      };
+      const { error } = await supabase.from("articoli").update(payload).eq("id", selected.id);
+      if (error) { alert(error.message); return; }
+      await loadArticoli();
+      setDetDirty(false);
+    } finally {
+      setDetSaving(false);
+    }
+  }
+
   function cardClass(a: Articolo) {
     const s = statoScorta(a);
     if (s === "critico") return "card-critico";
@@ -709,7 +750,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
         {/* MAGAZZINO */}
         {tab === "magazzino" && (
-          <div className="grid gap-4 md:grid-cols-[360px_minmax(0,1fr)] items-start min-w-0">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px] items-start min-w-0">
             {/* UI_QUICK_ADD_ARTICOLO */}
             <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden md:sticky md:top-[92px] max-h-[calc(100vh-120px)] overflow-auto">
               <div className="mb-3 flex items-center justify-between">
@@ -765,25 +806,25 @@ const [tab, setTab] = useState<Tab>("magazzino");
                 </div>
               )}
             </section>
-            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden">
+            <section className="rounded-3xl border border-neutral-200 bg-white p-3 shadow-sm min-w-0 overflow-hidden">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-base font-semibold">Nuovo articolo</h2>
                 <span className="text-xs text-neutral-500">visibile a tutti</span>
               </div>
 
-              <div className="grid gap-3">
+              <div className="grid gap-2">
                 <div className="grid gap-2 md:grid-cols-1 items-start">
                   <input
                     value={qaCod}
                     onChange={(e) => setQaCod(e.target.value)}
                     placeholder="Misura / Codice (es. 32x42)"
-                    className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
+                    className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
                   />
                   <input
                     value={qaDesc}
                     onChange={(e) => setQaDesc(e.target.value)}
                     placeholder="Descrizione"
-                    className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
+                    className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
                   />
                 </div>
 
@@ -794,7 +835,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       type="number"
                       value={qaMin}
                       onChange={(e) => setQaMin(parseInt(String((e.target as any)?.value ?? "0").replace(/[^\d-]/g,"") || "0", 10) || 0)}
-                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none min-w-0"
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
                     />
                   </div>
                   <div>
@@ -803,7 +844,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       type="number"
                       value={qaInv}
                       onChange={(e) => setQaInv(Number(e.target.value))}
-                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none min-w-0"
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
                     />
                   </div>
                   <div>
@@ -812,7 +853,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       type="number"
                       value={qaImp}
                       onChange={(e) => setQaImp(Number(e.target.value))}
-                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none min-w-0"
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
                     />
                   </div>
                   <div>
@@ -821,7 +862,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       type="number"
                       value={qaArr}
                       onChange={(e) => setQaArr(Number(e.target.value))}
-                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm outline-none min-w-0"
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
                     />
                   </div>
                 </div>
@@ -829,7 +870,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                 <button
                   onClick={quickAddArticolo}
                   disabled={qaBusy}
-                  className="rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
+                  className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
                   style={{ backgroundColor: ACCENT }}
                 >
                   {qaBusy ? "Aggiungo..." : "Aggiungi articolo"}
@@ -838,34 +879,131 @@ const [tab, setTab] = useState<Tab>("magazzino");
             </section>
 
             {/* Dettaglio */}
+            {/* Dettaglio */}
             <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden">
-              <h2 className="mb-3 text-base font-semibold">Dettaglio</h2>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="text-base font-semibold">Dettaglio</h2>
+                <button
+                  onClick={salvaDettaglio}
+                  disabled={!selected || !detDirty || detSaving}
+                  className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
+                  style={{ backgroundColor: ACCENT }}
+                >
+                  {detSaving ? "Salvo..." : (detDirty ? "Salva modifiche" : "Salvato")}
+                </button>
+              </div>
 
               {!selected ? (
                 <p className="text-sm text-neutral-500">Seleziona un articolo dalla lista.</p>
               ) : (
                 <div className="space-y-4">
-                  <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-                    <div className="text-sm font-semibold">{selected.descrizione}</div>
-                    <div className="text-xs text-neutral-500">{selected.cod_articolo}</div>
-
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <div className="rounded-2xl bg-white p-3">
-                        <div className="text-xs text-neutral-500">Disponibili</div>
-                        <div className="text-xl font-semibold">{disponibili(selected)}</div>
+                  <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3 space-y-3">
+                    <div className="grid gap-2">
+                      <div>
+                        <div className="text-xs text-neutral-500">Descrizione</div>
+                        <input
+                          value={String(detForm?.descrizione ?? "")}
+                          onChange={(e) => setDet("descrizione", e.target.value)}
+                          className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
+                        />
                       </div>
-                      <div className="rounded-2xl bg-white p-3">
-                        <div className="text-xs text-neutral-500">Fisico</div>
-                        <div className="text-xl font-semibold">{clampInt(safeNum(selected.scatole_inventario))}</div>
+                      <div>
+                        <div className="text-xs text-neutral-500">Codice / Misura</div>
+                        <input
+                          value={String(detForm?.cod_articolo ?? "")}
+                          onChange={(e) => setDet("cod_articolo", e.target.value)}
+                          className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
+                        />
+/npm
                       </div>
                     </div>
 
-                    <div className="mt-3 text-xs text-neutral-500">
-                      {selected.pz_per_scatola} pz/scatola • Impegnate: {clampInt(safeNum(selected.scatole_impegnate ?? 0))} • In arrivo: {clampInt(safeNum(selected.in_arrivo ?? 0))}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="text-xs text-neutral-500">Pezzi per scatola</div>
+                        <input
+                          type="number"
+                          value={clampInt(safeNum(detForm?.pz_per_scatola ?? 0))}
+                          onChange={(e) => setDet("pz_per_scatola", e.target.value)}
+                          className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
+                        />
+                      </div>
+                      <div>
+                        <div className="text-xs text-neutral-500">Costo €/scatola</div>
+                        <input
+                          inputMode="decimal"
+                          value={String(detForm?.prezzo_costo ?? "")}
+                          onChange={(e) => setDet("prezzo_costo", e.target.value.replace(/[^\d.,]/g,""))}
+                          className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="text-xs text-neutral-500">Scorta minima</div>
+                        <input
+                          type="number"
+                          value={clampInt(safeNum(detForm?.scorta_minima ?? 0))}
+                          onChange={(e) => setDet("scorta_minima", e.target.value)}
+                          className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
+                        />
+                      </div>
+                      <div>
+                        <div className="text-xs text-neutral-500">Scorta obiettivo</div>
+                        <input
+                          type="number"
+                          value={clampInt(safeNum(detForm?.scorta_obiettivo ?? 0))}
+                          onChange={(e) => setDet("scorta_obiettivo", e.target.value)}
+                          className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <div className="text-xs text-neutral-500">Fisico</div>
+                        <input
+                          type="number"
+                          value={clampInt(safeNum(detForm?.scatole_inventario ?? 0))}
+                          onChange={(e) => setDet("scatole_inventario", e.target.value)}
+                          className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
+                        />
+                      </div>
+                      <div>
+                        <div className="text-xs text-neutral-500">Impegnate</div>
+                        <input
+                          type="number"
+                          value={clampInt(safeNum(detForm?.scatole_impegnate ?? 0))}
+                          onChange={(e) => setDet("scatole_impegnate", e.target.value)}
+                          className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
+                        />
+                      </div>
+                      <div>
+                        <div className="text-xs text-neutral-500">In arrivo</div>
+                        <input
+                          type="number"
+                          value={clampInt(safeNum(detForm?.in_arrivo ?? 0))}
+                          onChange={(e) => setDet("in_arrivo", e.target.value)}
+                          className="mt-1 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-3">
+                      <div>
+                        <div className="text-sm font-semibold">Visibile in Magazzino</div>
+                        <div className="text-xs text-neutral-500">Se disattivi, resta solo per te (Ordini)</div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={!!detForm?.visibile_magazzino}
+                        onChange={(e) => setDet("visibile_magazzino", e.target.checked)}
+                        className="h-5 w-5"
+                      />
                     </div>
                   </div>
 
-                  {/* Carico/Scarico fisico */}
                   <div className="rounded-2xl border border-neutral-200 p-3">
                     <label className="block text-xs text-neutral-500">Carico / Scarico (fisico)</label>
                     <input
@@ -873,27 +1011,25 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       onChange={(e) => setDeltaFisico(e.target.value.replace(/[^\d]/g, ""))}
                       inputMode="numeric"
                       placeholder="es. 2"
-                      className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400 min-w-0"
+                      className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
                     />
-
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <button
                         onClick={() => applyDeltaFisico("+")}
-                        className="rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
+                        className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
                         style={{ backgroundColor: ACCENT }}
                       >
                         + Carico
                       </button>
                       <button
                         onClick={() => applyDeltaFisico("-")}
-                        className="rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm active:scale-[0.99]"
+                        className="rounded-2xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm active:scale-[0.99]"
                       >
                         − Scarico
                       </button>
                     </div>
                   </div>
 
-                  {/* Impegnate */}
                   <div className="rounded-2xl border border-neutral-200 p-3">
                     <label className="block text-xs text-neutral-500">Scatole impegnate (promemoria ordini)</label>
                     <input
@@ -901,113 +1037,23 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       onChange={(e) => setDeltaImp(e.target.value.replace(/[^\d]/g, ""))}
                       inputMode="numeric"
                       placeholder="es. 5"
-                      className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400 min-w-0"
+                      className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
                     />
-
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <button
                         onClick={() => applyDeltaImpegnate("+")}
-                        className="rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
+                        className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm active:scale-[0.99]"
                         style={{ backgroundColor: ACCENT }}
                       >
                         + Applica
                       </button>
                       <button
                         onClick={() => applyDeltaImpegnate("-")}
-                        className="rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm active:scale-[0.99]"
+                        className="rounded-2xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm active:scale-[0.99]"
                       >
                         − Applica
                       </button>
                     </div>
-
-                    {!simpleView && (
-                      <button
-                        onClick={() => setShowAdvanced((v) => !v)}
-                        className="mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50 min-w-0"
-                      >
-                        {showAdvanced ? "Nascondi impostazioni" : "Impostazioni (avanzate)"}
-                      </button>
-                    )}
-
-                    {!simpleView && showAdvanced && (
-                      <div className="mt-3 rounded-2xl border border-neutral-200 bg-white p-3 space-y-3">
-                        <div className="grid gap-2 md:grid-cols-[420px_1fr] items-start">
-                          <div>
-                            <div className="text-sm font-semibold">Costo (€/scatola)</div>
-                            <div className="mt-2 flex gap-2">
-                              <input
-                                value={editCosto}
-                                onChange={(e) => setEditCosto(e.target.value.replace(/[^\d.,]/g, ""))}
-                                inputMode="decimal"
-                                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400 min-w-0"
-                              />
-                              <button
-                                onClick={() => { updateSelected({ prezzo_costo: parseFloat((editCosto || "0").replace(",", ".")) }); setEditCosto(""); }}
-                                className="shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm"
-                                style={{ backgroundColor: ACCENT }}
-                              >
-                                Applica
-                              </button>
-                            </div>
-                          </div>
-
-                          <div>
-                            <div className="text-sm font-semibold">Scorta minima</div>
-                            <div className="mt-2 flex gap-2">
-                              <input
-                                value={editMin}
-                                onChange={(e) => setEditMin(e.target.value.replace(/[^\d]/g, ""))}
-                                inputMode="numeric"
-                                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400 min-w-0"
-                              />
-                              <button
-                                onClick={() => { updateSelected({ scorta_minima: parseInt(editMin || "0", 10) }); setEditMin(""); }}
-                                className="shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm"
-                                style={{ backgroundColor: ACCENT }}
-                              >
-                                Applica
-                              </button>
-                            </div>
-                          </div>
-
-                          <div>
-                            <div className="text-sm font-semibold">Scorta obiettivo (ordini)</div>
-                            <div className="mt-2 flex gap-2">
-                              <input
-                                value={editObj}
-                                onChange={(e) => setEditObj(e.target.value.replace(/[^\d]/g, ""))}
-                                inputMode="numeric"
-                                className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-base shadow-sm outline-none focus:border-neutral-400 min-w-0"
-                              />
-                              <button
-                                onClick={() => { updateSelected({ scorta_obiettivo: parseInt(editObj || "0", 10) }); setEditObj(""); }}
-                                className="shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm"
-                                style={{ backgroundColor: ACCENT }}
-                              >
-                                Applica
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-3">
-                            <div>
-                              <div className="text-sm font-semibold">Visibile in Magazzino</div>
-                              <div className="text-xs text-neutral-500">Se disattivi, resta solo per te (Ordini)</div>
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={editVis}
-                              onChange={(e) => {
-                                const v = e.target.checked;
-                                setEditVis(v);
-                                updateSelected({ visibile_magazzino: v });
-                              }}
-                              className="h-5 w-5"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}

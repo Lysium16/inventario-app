@@ -46,3 +46,7 @@ node_modules
 # backup locali
 app/page.tsx.bak-*
 
+
+# local backups / safe-change artifacts
+scripts/*.bak_*
+*.bak_*
