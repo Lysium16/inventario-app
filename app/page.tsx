@@ -878,80 +878,8 @@ const [tab, setTab] = useState<Tab>("magazzino");
                 </button>
               </div>
             </section>
-            <section className="rounded-3xl border border-neutral-200 bg-white p-3 shadow-sm min-w-0 overflow-hidden">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-base font-semibold">Nuovo articolo</h2>
-                <span className="text-xs text-neutral-500">visibile a tutti</span>
-              </div>
-
-              <div className="grid gap-2">
-                <div className="grid gap-2 md:grid-cols-1 items-start">
-                  <input
-                    value={qaCod}
-                    onChange={(e) => setQaCod(e.target.value)}
-                    placeholder="Misura / Codice (es. 32x42)"
-                    className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
-                  />
-                  <input
-                    value={qaDesc}
-                    onChange={(e) => setQaDesc(e.target.value)}
-                    placeholder="Descrizione"
-                    className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
-                  />
-                </div>
-
-                <div className="grid gap-2 md:grid-cols-4">
-                  <div>
-                    <div className="mb-1 text-xs text-neutral-500">Scorta minima</div>
-                    <input
-                      type="number"
-                      value={qaMin}
-                      onChange={(e) => setQaMin(parseInt(String((e.target as any)?.value ?? "0").replace(/[^\d-]/g,"") || "0", 10) || 0)}
-                      className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
-                    />
-                  </div>
-                  <div>
-                    <div className="mb-1 text-xs text-neutral-500">Magazzino</div>
-                    <input
-                      type="number"
-                      value={qaInv}
-                      onChange={(e) => setQaInv(Number(e.target.value))}
-                      className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
-                    />
-                  </div>
-                  <div>
-                    <div className="mb-1 text-xs text-neutral-500">Impegnate</div>
-                    <input
-                      type="number"
-                      value={qaImp}
-                      onChange={(e) => setQaImp(Number(e.target.value))}
-                      className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
-                    />
-                  </div>
-                  <div>
-                    <div className="mb-1 text-xs text-neutral-500">In arrivo</div>
-                    <input
-                      type="number"
-                      value={qaArr}
-                      onChange={(e) => setQaArr(Number(e.target.value))}
-                      className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  onClick={quickAddArticolo}
-                  disabled={qaBusy}
-                  className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
-                  style={{ backgroundColor: ACCENT }}
-                >
-                  {qaBusy ? "Aggiungo..." : "Aggiungi articolo"}
-                </button>
-              </div>
-            </section>
             </div>
 
-            {/* Dettaglio */}
             {/* Dettaglio */}
             <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 flex-1 overflow-auto">
               <div className="mb-3 flex items-center justify-between gap-2">
