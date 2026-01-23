@@ -750,9 +750,9 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
         {/* MAGAZZINO */}
         {tab === "magazzino" && (
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px] items-start min-w-0">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_380px] items-start min-w-0">
             {/* UI_QUICK_ADD_ARTICOLO */}
-            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden md:sticky md:top-[92px] max-h-[calc(100vh-120px)] overflow-auto">
+            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 md:sticky md:top-[92px] h-[calc(100vh-170px)] overflow-auto">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-base font-semibold">Articoli</h2>
                 <span className="text-xs text-neutral-500">{loading ? "…" : `${soloMagazzino.length} tot`}</span>
@@ -805,6 +805,78 @@ const [tab, setTab] = useState<Tab>("magazzino");
                   ))}
                 </div>
               )}
+            </section>
+            <div className="sticky top-[84px] h-[calc(100vh-170px)] min-w-0 flex flex-col gap-4">
+            <section className="rounded-3xl border border-neutral-200 bg-white p-3 shadow-sm min-w-0 overflow-hidden">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-base font-semibold">Nuovo articolo</h2>
+                <span className="text-xs text-neutral-500">visibile a tutti</span>
+              </div>
+
+              <div className="grid gap-2">
+                <div className="grid gap-2 md:grid-cols-1 items-start">
+                  <input
+                    value={qaCod}
+                    onChange={(e) => setQaCod(e.target.value)}
+                    placeholder="Misura / Codice (es. 32x42)"
+                    className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
+                  />
+                  <input
+                    value={qaDesc}
+                    onChange={(e) => setQaDesc(e.target.value)}
+                    placeholder="Descrizione"
+                    className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-neutral-400 min-w-0"
+                  />
+                </div>
+
+                <div className="grid gap-2 grid-cols-2">
+                  <div>
+                    <div className="mb-1 text-xs text-neutral-500">Scorta minima</div>
+                    <input
+                      type="number"
+                      value={qaMin}
+                      onChange={(e) => setQaMin(parseInt(String((e.target as any)?.value ?? "0").replace(/[^\d-]/g,"") || "0", 10) || 0)}
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-1 text-xs text-neutral-500">Magazzino</div>
+                    <input
+                      type="number"
+                      value={qaInv}
+                      onChange={(e) => setQaInv(Number(e.target.value))}
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-1 text-xs text-neutral-500">Impegnate</div>
+                    <input
+                      type="number"
+                      value={qaImp}
+                      onChange={(e) => setQaImp(Number(e.target.value))}
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-1 text-xs text-neutral-500">In arrivo</div>
+                    <input
+                      type="number"
+                      value={qaArr}
+                      onChange={(e) => setQaArr(Number(e.target.value))}
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={quickAddArticolo}
+                  disabled={qaBusy}
+                  className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
+                  style={{ backgroundColor: ACCENT }}
+                >
+                  {qaBusy ? "Aggiungo..." : "Aggiungi articolo"}
+                </button>
+              </div>
             </section>
             <section className="rounded-3xl border border-neutral-200 bg-white p-3 shadow-sm min-w-0 overflow-hidden">
               <div className="mb-3 flex items-center justify-between">
@@ -877,10 +949,11 @@ const [tab, setTab] = useState<Tab>("magazzino");
                 </button>
               </div>
             </section>
+            </div>
 
             {/* Dettaglio */}
             {/* Dettaglio */}
-            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden">
+            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 flex-1 overflow-auto">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h2 className="text-base font-semibold">Dettaglio</h2>
                 <button
