@@ -494,6 +494,10 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
   // ===== UI =====
   function TopTabs() {
+    const hasArrivi = (articoli || []).some(
+      (a) => clampInt(safeNum((a as any)?.in_arrivo ?? 0)) > 0
+    );
+
     return (
       <div className="flex items-center gap-2">
         {([
@@ -501,7 +505,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
           ["ordini", "Ordini"],
           ["arrivi", "Arrivi"],
           ["dashboard", "Dashboard"],
-        ] as Array<[Tab, string]>).map(([k, label]) => (
+        ] as Array<[Tab, string]>).filter(([k]) => k !== "arrivi" || hasArrivi).map(([k, label]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -705,16 +709,70 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
         {/* MAGAZZINO */}
         {tab === "magazzino" && (
-          <div className="grid gap-4 md:grid-cols-[420px_1fr]">
+          <div className="grid gap-4 md:grid-cols-[360px_minmax(0,1fr)] items-start min-w-0">
             {/* UI_QUICK_ADD_ARTICOLO */}
-            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden md:sticky md:top-[92px] max-h-[calc(100vh-120px)] overflow-auto">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-base font-semibold">Articoli</h2>
+                <span className="text-xs text-neutral-500">{loading ? "…" : `${soloMagazzino.length} tot`}</span>
+              </div>
+
+              {loading ? (
+                <p className="text-sm text-neutral-500">Caricamento…</p>
+              ) : soloMagazzino.length === 0 ? (
+                <p className="text-sm text-neutral-500">Nessun articolo trovato.</p>
+              ) : (
+                <div className="space-y-2">
+                  {soloMagazzino.map((a) => (
+                    <button
+                      key={a.id}
+                      onClick={() => setSelected(a)}
+                      className={`w-full rounded-2xl border px-3 py-3 text-left transition ${cardClass(a)} ${
+                        selected?.id === a.id ? "border-neutral-900 bg-neutral-50" : "border-neutral-200 bg-white hover:bg-neutral-50"
+                      }`}
+                    >
+                      <div className="flex w-full items-center justify-between gap-4 min-w-0">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold text-neutral-900">{a.descrizione}</div>
+                          <div className="text-xs text-neutral-500">{a.cod_articolo}</div>
+                        </div>
+                      
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="rounded-2xl px-3 py-2" style={{ background: "rgba(44,184,179,0.14)" }}>
+                            <div className="text-[10px] uppercase tracking-wide text-neutral-700">Magazzino</div>
+                            <div className="text-2xl font-extrabold" style={{ color: ACCENT }}>
+                              {clampInt(safeNum(a.scatole_inventario))}
+                            </div>
+                          </div>
+                      
+                          <div className="rounded-2xl px-3 py-2" style={{ background: "rgba(234,179,8,0.20)" }}>
+                            <div className="text-[10px] uppercase tracking-wide text-neutral-700">Impegnate</div>
+                            <div className="text-2xl font-extrabold" style={{ color: "rgb(161 98 7)" }}>
+                              {clampInt(safeNum(a.scatole_impegnate))}
+                            </div>
+                          </div>
+                      
+                          <div className="rounded-2xl px-3 py-2" style={{ background: "rgba(59,130,246,0.18)" }}>
+                            <div className="text-[10px] uppercase tracking-wide text-neutral-700">In arrivo</div>
+                            <div className="text-2xl font-extrabold" style={{ color: "rgb(29 78 216)" }}>
+                              {clampInt(safeNum(a.in_arrivo))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-base font-semibold">Nuovo articolo</h2>
                 <span className="text-xs text-neutral-500">visibile a tutti</span>
               </div>
 
               <div className="grid gap-3">
-                <div className="grid gap-2 md:grid-cols-[420px_1fr] items-start">
+                <div className="grid gap-2 md:grid-cols-1 items-start">
                   <input
                     value={qaCod}
                     onChange={(e) => setQaCod(e.target.value)}
@@ -778,64 +836,9 @@ const [tab, setTab] = useState<Tab>("magazzino");
                 </button>
               </div>
             </section>
-            {/* Lista */}
-            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-base font-semibold">Articoli</h2>
-                <span className="text-xs text-neutral-500">{loading ? "…" : `${soloMagazzino.length} tot`}</span>
-              </div>
-
-              {loading ? (
-                <p className="text-sm text-neutral-500">Caricamento…</p>
-              ) : soloMagazzino.length === 0 ? (
-                <p className="text-sm text-neutral-500">Nessun articolo trovato.</p>
-              ) : (
-                <div className="space-y-2">
-                  {soloMagazzino.map((a) => (
-                    <button
-                      key={a.id}
-                      onClick={() => setSelected(a)}
-                      className={`w-full rounded-2xl border px-3 py-3 text-left transition ${cardClass(a)} ${
-                        selected?.id === a.id ? "border-neutral-900 bg-neutral-50" : "border-neutral-200 bg-white hover:bg-neutral-50"
-                      }`}
-                    >
-                      <div className="flex w-full items-center justify-between gap-4 min-w-0">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-neutral-900">{a.descrizione}</div>
-                          <div className="text-xs text-neutral-500">{a.cod_articolo}</div>
-                        </div>
-                      
-                        <div className="grid grid-cols-3 gap-2 text-center">
-                          <div className="rounded-2xl px-3 py-2" style={{ background: "rgba(44,184,179,0.14)" }}>
-                            <div className="text-[10px] uppercase tracking-wide text-neutral-700">Magazzino</div>
-                            <div className="text-2xl font-extrabold" style={{ color: ACCENT }}>
-                              {clampInt(safeNum(a.scatole_inventario))}
-                            </div>
-                          </div>
-                      
-                          <div className="rounded-2xl px-3 py-2" style={{ background: "rgba(234,179,8,0.20)" }}>
-                            <div className="text-[10px] uppercase tracking-wide text-neutral-700">Impegnate</div>
-                            <div className="text-2xl font-extrabold" style={{ color: "rgb(161 98 7)" }}>
-                              {clampInt(safeNum(a.scatole_impegnate))}
-                            </div>
-                          </div>
-                      
-                          <div className="rounded-2xl px-3 py-2" style={{ background: "rgba(59,130,246,0.18)" }}>
-                            <div className="text-[10px] uppercase tracking-wide text-neutral-700">In arrivo</div>
-                            <div className="text-2xl font-extrabold" style={{ color: "rgb(29 78 216)" }}>
-                              {clampInt(safeNum(a.in_arrivo))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </section>
 
             {/* Dettaglio */}
-            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden">
               <h2 className="mb-3 text-base font-semibold">Dettaglio</h2>
 
               {!selected ? (
@@ -1015,7 +1018,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
         {/* ORDINI */}
         {tab === "ordini" && (
           <div className="grid gap-4 md:grid-cols-[420px_1fr] items-start">
-            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-base font-semibold">Suggeriti</h2>
                 <button
@@ -1067,7 +1070,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
               )}
             </section>
 
-            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-base font-semibold">Carrello ordine</h2>
                 <button
@@ -1148,7 +1151,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
         {/* ARRIVI */}
         {tab === "arrivi" && (
-          <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold">Arrivi</h2>
               <div className="text-xs text-neutral-500">
@@ -1162,10 +1165,10 @@ const [tab, setTab] = useState<Tab>("magazzino");
             </p>
 
             <div className="mt-4 space-y-2">
-              {filtered.length === 0 ? (
+              {inArrivoTot() <= 0 ? (
                 <p className="text-sm text-neutral-500">Nessun articolo.</p>
               ) : (
-                filtered.map((a) => {
+                filtered.filter((a) => clampInt(safeNum(a.in_arrivo ?? 0)) > 0).map((a) => {
                   const arr = clampInt(safeNum(a.in_arrivo ?? 0));
                   return (
                     <div key={a.id} className="rounded-2xl border border-neutral-200 bg-white p-3">
@@ -1225,7 +1228,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
         {/* DASHBOARD */}
         {tab === "dashboard" && (
-          <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold">Dashboard</h2>
               <div className="text-xs text-neutral-500">Numeri e priorità (senza fronzoli, ma con stile)</div>
