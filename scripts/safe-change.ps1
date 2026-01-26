@@ -32,6 +32,7 @@ try {
     npm ci | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "npm ci fallito (exit code $LASTEXITCODE)" }
   }
+$global:LASTEXITCODE = 0
   npm.cmd run build | Out-Host
   if ($LASTEXITCODE -ne 0) { throw "Build fallita (exit code $LASTEXITCODE)" }
 }
