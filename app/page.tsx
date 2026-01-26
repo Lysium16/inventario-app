@@ -750,9 +750,9 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
         {/* MAGAZZINO */}
         {tab === "magazzino" && (
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_380px] items-start min-w-0">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_360px] items-start min-w-0">
             {/* UI_QUICK_ADD_ARTICOLO */}
-            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 md:sticky md:top-[92px] h-[calc(100vh-170px)] overflow-auto">
+            <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 md:sticky md:top-[92px] h-[calc(100vh-170px)] h-[calc(100vh-170px)] overflow-auto">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-base font-semibold">Articoli</h2>
                 <span className="text-xs text-neutral-500">{loading ? "…" : `${soloMagazzino.length} tot`}</span>
@@ -878,9 +878,6 @@ const [tab, setTab] = useState<Tab>("magazzino");
                 </button>
               </div>
             </section>
-            </div>
-
-            {/* Dettaglio */}
             <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 flex-1 overflow-auto">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h2 className="text-base font-semibold">Dettaglio</h2>
@@ -1059,6 +1056,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                 </div>
               )}
             </section>
+            </div>
           </div>
         )}
 
