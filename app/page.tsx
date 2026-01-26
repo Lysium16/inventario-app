@@ -149,7 +149,89 @@ function exportOrdinePdf(articoli: Articolo[], carrello: Record<string, number>)
 
     doc.save("ordine-borse-in-carta.pdf");
   });
+}
+
+
+
+async function confermaOrdine2(
+  articoli: Articolo[],
+  carrello: Record<string, number>,
+  loadArticoli: () => Promise<void>,
+  setCarrello: (v: any) => void,
+  confirmBusy: boolean,
+  setConfirmBusy: (v: boolean) => void
+) {
+  if (confirmBusy) return;
+  try {
+    setConfirmBusy(true);
+
+    // 1) PDF
+    exportOrdinePdf(articoli, carrello);
+
+    // 2) Sposta in ARRIVI (in_arrivo += qta_ordinate) - carrello è in scatole
+    const ids = Object.keys(carrello || {});
+    for (const id of ids) {
+      const qta = clampInt(Number((carrello as any)[id]));
+      if (qta <= 0) continue;
+
+      const a = articoli.find((x) => x.id === id);
+      if (!a) continue;
+
+      const cur = clampInt(safeNum(a.in_arrivo ?? 0));
+      const next = cur + qta;
+
+      const { error } = await supabase
+        .from("articoli")
+        .update({ in_arrivo: next })
+        .eq("id", id);
+
+      if (error) throw error;
+    }
+
+    await loadArticoli();
+    setCarrello({});
+  } catch (e: any) {
+    console.error(e);
+    alert("Errore durante la conferma ordine: " + (e?.message ?? String(e)));
+  } finally {
+    setConfirmBusy(false);
+  }
 }
+
+async function confermaOrdine(
+  articoli: Articolo[],
+  carrello: Record<string, number>,
+  loadArticoli: () => Promise<void>,
+  setCarrello: (v: any) => void
+) {
+  // 1) PDF
+  exportOrdinePdf(articoli, carrello);
+
+  // 2) Sposta in ARRIVI (in_arrivo += qta_ordinate) - carrello è in scatole
+  const ids = Object.keys(carrello || {});
+  for (const id of ids) {
+    const qta = clampInt(Number((carrello as any)[id]));
+    if (qta <= 0) continue;
+
+    const a = articoli.find((x) => x.id === id);
+    if (!a) continue;
+
+    const cur = clampInt(safeNum(a.in_arrivo ?? 0));
+    const next = cur + qta;
+
+    const { error } = await supabase
+      .from("articoli")
+      .update({ in_arrivo: next })
+      .eq("id", id);
+
+    if (error) throw error;
+  }
+
+  // 3) refresh e svuota carrello
+  await loadArticoli();
+  setCarrello({});
+}
+
 
 export default function Home() {
   
@@ -248,7 +330,8 @@ const [tab, setTab] = useState<Tab>("magazzino");
   const [editVis, setEditVis] = useState(true);
 
   // ordini
-  const [carrello, setCarrello] = useState<Record<string, number>>({});
+  const [carrello, setCarrello] = useState<Record<string, number>>({});
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const [suggeriti, setSuggeriti] = useState<Array<{ a: Articolo; qta: number }>>([]);
 
   async function loadArticoli() {
@@ -1130,11 +1213,11 @@ const [tab, setTab] = useState<Tab>("magazzino");
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-base font-semibold">Carrello ordine</h2>
                 <button
-                  onClick={() => exportOrdinePdf(articoli, carrello)}
+                  onClick={() => confermaOrdine(articoli, carrello, loadArticoli, setCarrello)}
                   className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm"
                   style={{ backgroundColor: ACCENT }}
                 >
-                  Esporta PDF
+                  Conferma ordine
                 </button>
               </div>
 
