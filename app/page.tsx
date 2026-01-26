@@ -181,6 +181,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
   const [qaInv, setQaInv] = useState(0);
   const [qaImp, setQaImp] = useState(0);
   const [qaArr, setQaArr] = useState(0);
+  const [qaPz, setQaPz] = useState<number>(1);
   const [qaBusy, setQaBusy] = useState(false);
 
   const quickAddArticolo = async () => {
@@ -204,6 +205,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
           scatole_inventario: qaInv,
           scatole_impegnate: qaImp,
           in_arrivo: qaArr,
+        pz_per_scatola: clampInt(safeNum(qaPz ?? 1)) || 1,
           scorta_minima: qaMin,
         }]);
       if (error) throw error;
@@ -863,6 +865,15 @@ const [tab, setTab] = useState<Tab>("magazzino");
                       type="number"
                       value={qaArr}
                       onChange={(e) => setQaArr(Number(e.target.value))}
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-1 text-xs text-neutral-500">Pz/scatola</div>
+                    <input
+                      type="number"
+                      value={qaPz}
+                      onChange={(e) => setQaPz(Math.max(1, Number(e.target.value) || 1))}
                       className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none min-w-0"
                     />
                   </div>
