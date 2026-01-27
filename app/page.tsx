@@ -716,7 +716,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
         </div>
       )}
 
-      {true && (
+      {false && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <div className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-xl min-w-0">
             <div className="flex items-start justify-between gap-3">
