@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { supabase } from "../page";
+import { supabase } from "../../lib/supabaseClient";
 
 type Impegno = {
   id: string;
@@ -229,4 +229,6 @@ export default function ImpegniPage() {
     </div>
   );
 }
+
+
 
