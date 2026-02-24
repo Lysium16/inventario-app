@@ -57,8 +57,8 @@ export default function ImpegniPage() {
         stato: 'IMPEGNATO',
       };
 
-      const { error } = await supabase.from('impegni_clienti').insert(payload);
-      if (error) throw error;
+      const { data, error } = await supabase.rpc('impegno_add', { p_cliente: cliente, p_articolo_id: articolo_id, p_scatole: scatole });
+if (error) throw error;
 
       setCliente('');
       setArticoloId('');
@@ -229,6 +229,7 @@ export default function ImpegniPage() {
     </div>
   );
 }
+
 
 
 
