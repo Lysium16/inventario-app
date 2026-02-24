@@ -6,7 +6,7 @@ import { supabase } from "../../lib/supabaseClient";
 type Impegno = {
   id: string;
   cliente: string;
-  articolo_id: string;
+  articoloId: string;
   scatole: number;
   stato: 'IMPEGNATO' | 'COMPLETATO';
   created_at: string;
@@ -52,12 +52,12 @@ export default function ImpegniPage() {
     try {
       const payload = {
         cliente: cliente.trim(),
-        articolo_id: articoloId.trim(),
+        articoloId: articoloId.trim(),
         scatole: Math.floor(Number(scatole)),
         stato: 'IMPEGNATO',
       };
 
-      const { data, error } = await supabase.rpc('impegno_add', { p_cliente: cliente, p_articolo_id: articolo_id, p_scatole: scatole });
+      const { data, error } = await supabase.rpc('impegno_add', { p_cliente: cliente, p_articolo_id: articoloId, p_scatole: scatole });
 if (error) throw error;
 
       setCliente('');
@@ -192,7 +192,7 @@ if (error) throw error;
                       {new Date(r.created_at).toLocaleString()}
                     </td>
                     <td style={{ padding: '10px 8px' }}>{r.cliente}</td>
-                    <td style={{ padding: '10px 8px' }}>{r.articolo_id}</td>
+                    <td style={{ padding: '10px 8px' }}>{r.articoloId}</td>
                     <td style={{ padding: '10px 8px' }}>{r.scatole}</td>
                     <td style={{ padding: '10px 8px' }}>{r.stato}</td>
                     <td style={{ padding: '10px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -229,6 +229,7 @@ if (error) throw error;
     </div>
   );
 }
+
 
 
 
