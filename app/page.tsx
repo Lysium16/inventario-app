@@ -691,6 +691,8 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-900">
+<div style={{ marginTop: 12, marginBottom: 12 }}><a href="/ordini" style={{ textDecoration: "underline" }}>Ordini</a></div>
+
       <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
@@ -1595,6 +1597,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
     </main>
   );
 }
+
 
 
 

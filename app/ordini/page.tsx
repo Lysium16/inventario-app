@@ -4,20 +4,25 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
 type Articolo = {
-  id?: string;
+  id: string;
   codice?: string;
   nome?: string;
   descrizione?: string;
 };
 
+type Cliente = {
+  id: string;
+  nome: string;
+};
 type RigaOrdine = {
   articoloId: string;
   scatole: number;
 };
 
 export default function OrdiniPage() {
-  const [cliente, setCliente] = useState('');
-  const [articoli, setArticoli] = useState<Articolo[]>([]);
+  const [clienteId, setClienteId] = useState('');
+  const [clienti, setClienti] = useState<Cliente[]>([]);
+const [articoli, setArticoli] = useState<Articolo[]>([]);
   const [righe, setRighe] = useState<RigaOrdine[]>([{ articoloId: '', scatole: 1 }]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -36,12 +41,23 @@ export default function OrdiniPage() {
         return;
       }
       setArticoli((data as any[]) ?? []);
-    })();
+
+      const { data: dc, error: ec } = await supabase
+        .from('clienti')
+        .select('id,nome')
+        .order('nome', { ascending: true });
+
+      if (cancelled) return;
+      if (ec) {
+        setMsg('Errore caricamento clienti: ' + ec.message);
+        return;
+      }
+      setClienti((dc as any[]) ?? []);})();
     return () => { cancelled = true; };
   }, []);
 
   const canSubmit = useMemo(() => {
-    if (!cliente.trim()) return false;
+    if (!clienteId) return false;
     if (!righe.length) return false;
     return righe.every(r => r.articoloId && r.scatole > 0);
   }, [cliente, righe]);
@@ -65,7 +81,7 @@ export default function OrdiniPage() {
       // 1) crea testata ordine (tabella: ordini)
       const { data: ordine, error: e1 } = await supabase
         .from('ordini')
-        .insert({ cliente: cliente.trim(), stato: 'INVIATO' })
+        .insert({ cliente_id: clienteId, stato: 'INVIATO' })
         .select('id')
         .single();
 
@@ -83,7 +99,7 @@ export default function OrdiniPage() {
       if (e2) throw e2;
 
       setMsg('Ordine creato (' + ordineId + ').');
-      setCliente('');
+      setClienteId('');
       setRighe([{ articoloId: '', scatole: 1 }]);
     } catch (err: any) {
       setMsg('Errore conferma ordine: ' + (err?.message ?? String(err)));
@@ -99,14 +115,18 @@ export default function OrdiniPage() {
 
       <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>
         <label style={{ display: 'grid', gap: 6 }}>
-          <span>Cliente (nome)</span>
-          <input
-            value={cliente}
-            onChange={e => setCliente(e.target.value)}
-            placeholder="Es. Rossi SRL"
-            style={{ padding: 10, borderRadius: 10, border: '1px solid #ddd' }}
-          />
-        </label>
+          <span>Cliente</span>
+<select
+  value={clienteId}
+  onChange={e => setClienteId(e.target.value)}
+  style={{ padding: 10, borderRadius: 10, border: '1px solid #ddd' }}
+>
+  <option value="">Seleziona cliente...</option>
+  {clienti.map((cl: any) => (
+    <option key={cl.id} value={cl.id}>{cl.nome}</option>
+  ))}
+</select>
+</label>
 
         <div style={{ border: '1px solid #eee', borderRadius: 14, padding: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -177,3 +197,4 @@ export default function OrdiniPage() {
     </main>
   );
 }
+
