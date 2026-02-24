@@ -1,4 +1,8 @@
 'use client';
+
+import Link from 'next/link';
+
+import DomobagsHeader from '../../components/DomobagsHeader';
 export const dynamic = 'force-dynamic';
 
 
@@ -385,6 +389,8 @@ export default function OrdiniPage() {
 
   return (<>
 
+      <DomobagsHeader active="ordini" />
+
     <main className="mx-auto max-w-6xl p-6">
 
 
@@ -649,7 +655,7 @@ export default function OrdiniPage() {
         <p className="text-sm opacity-60">
 
 
-          Se Ã¢â‚¬Å“non vedi differenzeÃ¢â‚¬Â, spesso ÃƒÂ¨ perchÃƒÂ© il DB ti sta rispondendo Ã¢â‚¬Å“noÃ¢â‚¬Â (RLS) o perchÃƒÂ© mancano dati.
+          Se ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œnon vedi differenzeÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â, spesso ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ perchÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© il DB ti sta rispondendo ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œnoÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â (RLS) o perchÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© mancano dati.
 
 
         </p>

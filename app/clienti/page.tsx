@@ -1,4 +1,8 @@
 'use client';
+
+import Link from 'next/link';
+
+import DomobagsHeader from '../../components/DomobagsHeader';
 export const dynamic = 'force-dynamic';
 
 
@@ -123,6 +127,8 @@ export default function ClientiPage() {
 
 
   return (<>
+
+      <DomobagsHeader active="clienti" />
 
     <main style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
 
