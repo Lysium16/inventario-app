@@ -1,28 +1,41 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
-type Articolo = {
+type ArticoloAny = {
   id: string;
-  codice?: string;
-  nome?: string;
-  descrizione?: string;
+  codice?: string | null;
+  misura?: string | null;
+  nome?: string | null;
+  descrizione?: string | null;
 };
 
 type Cliente = {
   id: string;
   nome: string;
 };
+
 type RigaOrdine = {
   articoloId: string;
   scatole: number;
 };
 
+function labelArticolo(a: ArticoloAny) {
+  const code = (a.codice ?? a.misura ?? '').trim();
+  const name = (a.nome ?? a.descrizione ?? '').trim();
+  if (code && name) return `${code} - ${name}`;
+  return code || name || a.id;
+}
+
+function sortKeyArticolo(a: ArticoloAny) {
+  return ((a.codice ?? a.misura ?? a.nome ?? a.descrizione ?? a.id) ?? '').toString().toLowerCase();
+}
+
 export default function OrdiniPage() {
   const [clienteId, setClienteId] = useState('');
   const [clienti, setClienti] = useState<Cliente[]>([]);
-const [articoli, setArticoli] = useState<Articolo[]>([]);
+  const [articoli, setArticoli] = useState<ArticoloAny[]>([]);
   const [righe, setRighe] = useState<RigaOrdine[]>([{ articoloId: '', scatole: 1 }]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -30,17 +43,22 @@ const [articoli, setArticoli] = useState<Articolo[]>([]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
+      setMsg(null);
+
+      // ARTICOLI: non chiediamo colonne che magari non esistono.
+      // Prendiamo * e poi ordiniamo lato client con il campo migliore disponibile.
+      const { data: da, error: ea } = await supabase
         .from('articoli')
-        .select('id,codice,nome,descrizione')
-        .order('codice', { ascending: true });
+        .select('*');
 
       if (cancelled) return;
-      if (error) {
-        setMsg('Errore caricamento articoli: ' + error.message);
-        return;
+      if (ea) {
+        setMsg('Errore caricamento articoli: ' + ea.message);
+      } else {
+        const arr = ((da as any[]) ?? []) as ArticoloAny[];
+        arr.sort((x, y) => sortKeyArticolo(x).localeCompare(sortKeyArticolo(y)));
+        setArticoli(arr);
       }
-      setArticoli((data as any[]) ?? []);
 
       const { data: dc, error: ec } = await supabase
         .from('clienti')
@@ -49,10 +67,12 @@ const [articoli, setArticoli] = useState<Articolo[]>([]);
 
       if (cancelled) return;
       if (ec) {
-        setMsg('Errore caricamento clienti: ' + ec.message);
-        return;
+        setMsg((prev) => (prev ? prev + ' | ' : '') + 'Errore caricamento clienti: ' + ec.message);
+      } else {
+        setClienti(((dc as any[]) ?? []) as Cliente[]);
       }
-      setClienti((dc as any[]) ?? []);})();
+    })();
+
     return () => { cancelled = true; };
   }, []);
 
@@ -78,7 +98,7 @@ const [articoli, setArticoli] = useState<Articolo[]>([]);
     setMsg(null);
     setLoading(true);
     try {
-      // 1) crea testata ordine (tabella: ordini)
+      // 1) testata ordine
       const { data: ordine, error: e1 } = await supabase
         .from('ordini')
         .insert({ cliente_id: clienteId, stato: 'INVIATO' })
@@ -86,9 +106,9 @@ const [articoli, setArticoli] = useState<Articolo[]>([]);
         .single();
 
       if (e1) throw e1;
-      const ordineId = (ordine as any).id;
+      const ordineId = (ordine as any).id as string;
 
-      // 2) inserisce righe (tabella: ordini_righe)
+      // 2) righe
       const payload = righe.map(r => ({
         ordine_id: ordineId,
         articolo_id: r.articoloId,
@@ -109,45 +129,55 @@ const [articoli, setArticoli] = useState<Articolo[]>([]);
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700 }}>Ordini</h1>
-      <p style={{ opacity: 0.7, marginTop: 6 }}>Collegato a clienti (nome) e articoli. Niente telepatia, solo DB.</p>
+    <main className="mx-auto max-w-6xl p-6">
+      <div className="flex items-baseline justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Ordini</h1>
+        <a href="/" className="text-sm underline opacity-80 hover:opacity-100">Torna al magazzino</a>
+      </div>
 
-      <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>
-        <label style={{ display: 'grid', gap: 6 }}>
-          <span>Cliente</span>
-<select
-  value={clienteId}
-  onChange={e => setClienteId(e.target.value)}
-  style={{ padding: 10, borderRadius: 10, border: '1px solid #ddd' }}
->
-  <option value="">Seleziona cliente...</option>
-  {clienti.map((cl: any) => (
-    <option key={cl.id} value={cl.id}>{cl.nome}</option>
-  ))}
-</select>
-</label>
+      <p className="mt-2 opacity-70">
+        Collega clienti + articoli. Nessuna magia: solo DB (e i tuoi dati che devono esistere davvero).
+      </p>
 
-        <div style={{ border: '1px solid #eee', borderRadius: 14, padding: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ margin: 0, fontSize: 18 }}>Righe ordine</h2>
-            <button onClick={addRiga} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #ddd' }}>
+      <div className="mt-5 grid gap-4">
+        <label className="grid gap-2">
+          <span className="text-sm font-medium">Cliente</span>
+          <select
+            value={clienteId}
+            onChange={e => setClienteId(e.target.value)}
+            className="h-11 rounded-xl border border-neutral-200 bg-white/60 px-3 dark:bg-black/20"
+          >
+            <option value="">Seleziona cliente...</option>
+            {clienti.map(cl => (
+              <option key={cl.id} value={cl.id}>{cl.nome}</option>
+            ))}
+          </select>
+        </label>
+
+        <div className="rounded-2xl border border-neutral-200 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="m-0 text-base font-semibold">Righe ordine</h2>
+            <button
+              onClick={addRiga}
+              className="rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+              type="button"
+            >
               + Aggiungi riga
             </button>
           </div>
 
-          <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+          <div className="mt-3 grid gap-3">
             {righe.map((r, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px', gap: 10, alignItems: 'center' }}>
+              <div key={i} className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_160px_120px] md:items-center">
                 <select
                   value={r.articoloId}
                   onChange={e => updateRiga(i, { articoloId: e.target.value })}
-                  style={{ padding: 10, borderRadius: 10, border: '1px solid #ddd' }}
+                  className="h-11 rounded-xl border border-neutral-200 bg-white/60 px-3 dark:bg-black/20"
                 >
                   <option value="">Seleziona articolo...</option>
-                  {articoli.map((a: any) => (
-                    <option key={a.id ?? a.codice} value={a.id ?? a.codice}>
-                      {(a.codice ? a.codice + ' - ' : '') + (a.nome ?? a.descrizione ?? 'Senza nome')}
+                  {articoli.map(a => (
+                    <option key={a.id} value={a.id}>
+                      {labelArticolo(a)}
                     </option>
                   ))}
                 </select>
@@ -157,13 +187,14 @@ const [articoli, setArticoli] = useState<Articolo[]>([]);
                   min={1}
                   value={r.scatole}
                   onChange={e => updateRiga(i, { scatole: Number(e.target.value) })}
-                  style={{ padding: 10, borderRadius: 10, border: '1px solid #ddd' }}
+                  className="h-11 rounded-xl border border-neutral-200 bg-white/60 px-3 dark:bg-black/20"
                 />
 
                 <button
                   onClick={() => removeRiga(i)}
                   disabled={righe.length === 1}
-                  style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #ddd', opacity: righe.length === 1 ? 0.4 : 1 }}
+                  className="rounded-xl border border-neutral-200 px-3 py-2 text-sm disabled:opacity-40"
+                  type="button"
                 >
                   Rimuovi
                 </button>
@@ -172,30 +203,23 @@ const [articoli, setArticoli] = useState<Articolo[]>([]);
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div className="flex items-center gap-3">
           <button
             onClick={confermaOrdine}
             disabled={!canSubmit || loading}
-            style={{
-              padding: '10px 14px',
-              borderRadius: 12,
-              border: '1px solid #ddd',
-              opacity: (!canSubmit || loading) ? 0.5 : 1
-            }}
+            className="rounded-xl border border-neutral-200 px-4 py-2 text-sm disabled:opacity-50"
+            type="button"
           >
             {loading ? 'Invio...' : 'Conferma ordine'}
           </button>
 
-          {msg && <span style={{ opacity: 0.8 }}>{msg}</span>}
+          {msg && <span className="text-sm opacity-80">{msg}</span>}
         </div>
 
-        <p style={{ opacity: 0.65, marginTop: 10 }}>
-          Nota: per funzionare servono tabelle <code>ordini</code> e <code>ordini_righe</code> su Supabase.
-          Se non esistono, ti verrà mostrato l’errore chiaro (senza poesia).
+        <p className="text-sm opacity-60">
+          Se “non vedi differenze”, spesso è perché il DB ti sta rispondendo “no” (RLS) o perché mancano dati.
         </p>
       </div>
     </main>
   );
 }
-
-
