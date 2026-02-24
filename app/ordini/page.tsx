@@ -60,7 +60,7 @@ const [articoli, setArticoli] = useState<Articolo[]>([]);
     if (!clienteId) return false;
     if (!righe.length) return false;
     return righe.every(r => r.articoloId && r.scatole > 0);
-  }, [cliente, righe]);
+  }, [clienteId, righe]);
 
   function updateRiga(i: number, patch: Partial<RigaOrdine>) {
     setRighe(prev => prev.map((r, idx) => idx === i ? { ...r, ...patch } : r));
@@ -197,4 +197,5 @@ const [articoli, setArticoli] = useState<Articolo[]>([]);
     </main>
   );
 }
+
 
