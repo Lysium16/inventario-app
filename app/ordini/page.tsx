@@ -1,8 +1,8 @@
+﻿export const dynamic = 'force-dynamic';
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-
 type ArticoloAny = {
   id: string;
   codice?: string | null;
@@ -217,7 +217,7 @@ export default function OrdiniPage() {
         </div>
 
         <p className="text-sm opacity-60">
-          Se “non vedi differenze”, spesso è perché il DB ti sta rispondendo “no” (RLS) o perché mancano dati.
+          Se â€œnon vedi differenzeâ€, spesso Ã¨ perchÃ© il DB ti sta rispondendo â€œnoâ€ (RLS) o perchÃ© mancano dati.
         </p>
       </div>
     </main>

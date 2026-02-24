@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-
 type Cliente = { id: string; nome: string };
 
 export default function ClientiPage() {
@@ -78,3 +77,4 @@ export default function ClientiPage() {
     </main>
   );
 }
+
