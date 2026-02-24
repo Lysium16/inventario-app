@@ -383,8 +383,7 @@ export default function OrdiniPage() {
 
 
 
-  return (
-
+  return (<>
 
     <main className="mx-auto max-w-6xl p-6">
 
@@ -650,7 +649,7 @@ export default function OrdiniPage() {
         <p className="text-sm opacity-60">
 
 
-          Se â€œnon vedi differenzeâ€, spesso Ã¨ perchÃ© il DB ti sta rispondendo â€œnoâ€ (RLS) o perchÃ© mancano dati.
+          Se Ã¢â‚¬Å“non vedi differenzeÃ¢â‚¬Â, spesso ÃƒÂ¨ perchÃƒÂ© il DB ti sta rispondendo Ã¢â‚¬Å“noÃ¢â‚¬Â (RLS) o perchÃƒÂ© mancano dati.
 
 
         </p>
@@ -660,6 +659,9 @@ export default function OrdiniPage() {
 
 
     </main>
+
+
+  </>
 
 
   );
