@@ -53,3 +53,13 @@ scripts/*.bak_*
 
 safe-change-scatole.ps1
 
+.env*.local
+
+# Local logs / diagnostics
+vercel_*.txt
+vercel_*.json
+
+# Supabase temp / scratch
+supabase/.temp/
+supabase/_*.sql
+
