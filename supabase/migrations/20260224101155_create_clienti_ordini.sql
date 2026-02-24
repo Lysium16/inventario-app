@@ -1,0 +1,2 @@
+-- Placeholder migration (no-op)
+-- Restores local file that exists in remote migration history.
