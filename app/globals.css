@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 :root {
   --brand: #009E8A;
@@ -61,3 +61,6 @@ body {
   border: 1px solid color-mix(in srgb, var(--brand) 28%, white);
 }
 
+/* DOMOBAGS-LIGHT-FALLBACK */
+:root { color-scheme: light; }
+body { background: #f7f7f7; color: #111; }
