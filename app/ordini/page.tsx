@@ -1,247 +1,269 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import DomobagsHeader from '../../components/DomobagsHeader';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
-export const dynamic = 'force-dynamic';
-
 type Cliente = { id: string; nome: string };
-type ArticoloRow = { id: string; codice?: string | null; misura?: string | null; descrizione?: string | null };
+type Articolo = { id: string; codice?: string | null; descrizione?: string | null; magazzino?: number | null; impegnate?: number | null };
 
-type Riga = { articolo_id: string; scatole: number };
-
-function labelArticolo(a: ArticoloRow): string {
-  const parts = [a.codice, a.misura, a.descrizione].filter(Boolean);
-  if (parts.length > 0) return parts.join(' • ');
-  return a.id;
-}
+type RigaDraft = { articolo_id: string; scatole: number };
 
 export default function OrdiniPage() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
   const [clienti, setClienti] = useState<Cliente[]>([]);
-  const [articoli, setArticoli] = useState<ArticoloRow[]>([]);
-  const [clienteId, setClienteId] = useState<string>('');
-  const [righe, setRighe] = useState<Riga[]>([{ articolo_id: '', scatole: 1 }]);
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [articoli, setArticoli] = useState<Articolo[]>([]);
+  const [clienteId, setClienteId] = useState('');
+  const [righe, setRighe] = useState<RigaDraft[]>([{ articolo_id: '', scatole: 1 }]);
 
-  async function loadClienti() {
-    const { data, error } = await supabase.from('clienti').select('id, nome').order('nome', { ascending: true });
-    if (error) {
-      setMsg('Errore lettura clienti: ' + error.message);
-      setClienti([]);
-      return;
-    }
-    setClienti((data ?? []) as Cliente[]);
-  }
-
-  async function loadArticoli() {
-    // Tentativo 1: colonne "comode"
-    let res = await supabase.from('articoli').select('id, codice, misura, descrizione').order('codice', { ascending: true }).limit(2000);
-    if (res.error) {
-      // Fallback: prendi almeno id + tutto (se esiste)
-      const res2 = await supabase.from('articoli').select('*').limit(2000);
-      if (res2.error) {
-        setMsg('Errore lettura articoli: ' + res2.error.message);
-        setArticoli([]);
-        return;
-      }
-      const mapped = (res2.data ?? []).map((x: any) => ({
-        id: String(x.id),
-        codice: x.codice ?? x.code ?? x.sku ?? null,
-        misura: x.misura ?? x.misura_codice ?? x.nome ?? null,
-        descrizione: x.descrizione ?? x.description ?? null
-      })) as ArticoloRow[];
-      setArticoli(mapped);
-      return;
-    }
-
-    setArticoli((res.data ?? []) as ArticoloRow[]);
-  }
+  const articoliById = useMemo(() => {
+    const m = new Map<string, Articolo>();
+    articoli.forEach(a => m.set(a.id, a));
+    return m;
+  }, [articoli]);
 
   async function loadAll() {
-    setMsg(null);
-    await Promise.all([loadClienti(), loadArticoli()]);
+    setLoading(true);
+    setErr(null);
+    try {
+      const { data: cData, error: cErr } = await supabase
+        .from('clienti')
+        .select('id,nome')
+        .order('nome', { ascending: true });
+      if (cErr) throw cErr;
+
+      const { data: aData, error: aErr } = await supabase
+        .from('articoli')
+        .select('id,codice,descrizione,magazzino,impegnate')
+        .order('codice', { ascending: true });
+      if (aErr) throw aErr;
+
+      setClienti((cData ?? []) as Cliente[]);
+      setArticoli((aData ?? []) as Articolo[]);
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadAll(); }, []);
 
-  const canConfirm = useMemo(() => {
-    if (!clienteId) return false;
-    if (righe.length === 0) return false;
-    for (const r of righe) {
-      if (!r.articolo_id) return false;
-      if (!Number.isFinite(r.scatole) || r.scatole <= 0) return false;
-    }
-    return true;
-  }, [clienteId, righe]);
+  function setRiga(i: number, patch: Partial<RigaDraft>) {
+    setRighe(prev => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
 
   function addRiga() {
-    setRighe((prev) => [...prev, { articolo_id: '', scatole: 1 }]);
+    setRighe(prev => [...prev, { articolo_id: '', scatole: 1 }]);
   }
-  function removeRiga(idx: number) {
-    setRighe((prev) => prev.filter((_, i) => i !== idx));
+
+  function removeRiga(i: number) {
+    setRighe(prev => prev.filter((_, idx) => idx !== i));
   }
-  function setRiga(idx: number, patch: Partial<Riga>) {
-    setRighe((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+
+  function validate(): string | null {
+    if (!clienteId) return 'Seleziona un cliente.';
+    const cleaned = righe.filter(r => r.articolo_id && r.scatole > 0);
+    if (cleaned.length === 0) return 'Aggiungi almeno una riga valida (articolo + scatole).';
+    return null;
+  }
+
+  async function incImpegnate(articoloId: string, delta: number) {
+    // Incremento "manuale" (select + update). Non è atomico al 100%, ma per ora funziona e non richiede migrazioni.
+    const { data, error } = await supabase
+      .from('articoli')
+      .select('id,impegnate')
+      .eq('id', articoloId)
+      .single();
+    if (error) throw error;
+    const cur = (data?.impegnate ?? 0) as number;
+    const next = cur + delta;
+    const { error: uErr } = await supabase
+      .from('articoli')
+      .update({ impegnate: next })
+      .eq('id', articoloId);
+    if (uErr) throw uErr;
   }
 
   async function confermaOrdine() {
-    if (!canConfirm) return;
+    setErr(null);
+    setOk(null);
 
-    setLoading(true);
-    setMsg(null);
+    const v = validate();
+    if (v) { setErr(v); return; }
 
-    // 1) crea ordine
-    const { data: ordineRow, error: errOrd } = await supabase
-      .from('ordini')
-      .insert({ cliente_id: clienteId, stato: 'CREATO' })
-      .select('id')
-      .single();
+    const cleaned = righe.filter(r => r.articolo_id && r.scatole > 0);
 
-    if (errOrd || !ordineRow?.id) {
-      setLoading(false);
-      setMsg('Errore creazione ordine: ' + (errOrd?.message ?? 'unknown'));
-      return;
+    setSaving(true);
+    try {
+      // 1) crea ordine già IMPEGNATO
+      const { data: oIns, error: oErr } = await supabase
+        .from('ordini')
+        .insert({ cliente_id: clienteId, stato: 'IMPEGNATO' })
+        .select('id')
+        .single();
+      if (oErr) throw oErr;
+      const ordineId = oIns.id as string;
+
+      // 2) inserisci righe già IMPEGNATO
+      const righePayload = cleaned.map(r => ({
+        ordine_id: ordineId,
+        articolo_id: r.articolo_id,
+        scatole: r.scatole,
+        stato: 'IMPEGNATO',
+      }));
+      const { error: rErr } = await supabase.from('ordini_righe').insert(righePayload);
+      if (rErr) throw rErr;
+
+      // 3) aggiorna articoli.impegnate
+      for (const r of cleaned) {
+        await incImpegnate(r.articolo_id, r.scatole);
+      }
+
+      setOk(`Ordine creato e messo in IMPEGNATE. ID: ${ordineId}`);
+      // reset form
+      setClienteId('');
+      setRighe([{ articolo_id: '', scatole: 1 }]);
+      await loadAll();
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      setSaving(false);
     }
-
-    const ordineId = ordineRow.id as string;
-
-    // 2) crea righe
-    const payload = righe.map((r) => ({
-      ordine_id: ordineId,
-      articolo_id: r.articolo_id,
-      scatole: r.scatole
-    }));
-
-    const { error: errRighe } = await supabase.from('ordini_righe').insert(payload);
-
-    setLoading(false);
-
-    if (errRighe) {
-      setMsg('Ordine creato, ma errore righe: ' + errRighe.message);
-      return;
-    }
-
-    setMsg('Ordine confermato.');
-    setClienteId('');
-    setRighe([{ articolo_id: '', scatole: 1 }]);
   }
 
   return (
-    <>
-      <DomobagsHeader active="ordini" />
-      <main className="mx-auto max-w-6xl p-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+    <main className="mx-auto max-w-6xl p-6">
+      <header className="mb-6">
+        <h1 className="text-2xl font-semibold">Nuovo ordine</h1>
+        <p className="text-sm text-neutral-500 mt-1">
+          Quando confermi, l’ordine va direttamente nelle <b>Impegnate</b>.
+        </p>
+      </header>
+
+      {err && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {err}
+        </div>
+      )}
+      {ok && (
+        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+          {ok}
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <div className="grid gap-4">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Ordini</h1>
-            <p className="mt-2 text-sm text-neutral-600">
-              Seleziona cliente e righe. Poi “Conferma ordine” scrive su <span className="font-semibold">ordini</span> e <span className="font-semibold">ordini_righe</span>.
-            </p>
+            <label className="block text-sm font-medium mb-2">Cliente</label>
+            <select
+              className="w-full rounded-xl border border-neutral-200 p-3"
+              value={clienteId}
+              onChange={(e) => setClienteId(e.target.value)}
+              disabled={loading || saving}
+            >
+              <option value="">Seleziona cliente...</option>
+              {clienti.map(c => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
+              ))}
+            </select>
           </div>
 
-          <button
-            onClick={loadAll}
-            disabled={loading}
-            className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-semibold hover:bg-neutral-50"
-          >
-            Aggiorna dati
-          </button>
+          <div className="rounded-xl border border-neutral-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-semibold">Righe ordine</div>
+              <button
+                type="button"
+                onClick={addRiga}
+                className="rounded-xl border border-neutral-200 px-3 py-2 text-sm hover:bg-neutral-50"
+                disabled={saving}
+              >
+                + Aggiungi riga
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {righe.map((r, i) => {
+                const a = r.articolo_id ? articoliById.get(r.articolo_id) : null;
+                const label = a ? `${a.codice ?? a.id} ${a.descrizione ? `- ${a.descrizione}` : ''}` : '';
+                return (
+                  <div key={i} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+                    <div className="md:col-span-8">
+                      <select
+                        className="w-full rounded-xl border border-neutral-200 p-3"
+                        value={r.articolo_id}
+                        onChange={(e) => setRiga(i, { articolo_id: e.target.value })}
+                        disabled={loading || saving}
+                      >
+                        <option value="">Seleziona articolo...</option>
+                        {articoli.map(a => (
+                          <option key={a.id} value={a.id}>
+                            {(a.codice ?? a.id) + (a.descrizione ? ` - ${a.descrizione}` : '')}
+                          </option>
+                        ))}
+                      </select>
+                      {label && (
+                        <div className="mt-1 text-xs text-neutral-500">
+                          Magazzino: {a?.magazzino ?? 0} · Impegnate: {a?.impegnate ?? 0}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <input
+                        type="number"
+                        min={1}
+                        className="w-full rounded-xl border border-neutral-200 p-3"
+                        value={r.scatole}
+                        onChange={(e) => setRiga(i, { scatole: Math.max(1, Number(e.target.value || 1)) })}
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="md:col-span-2 flex md:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => removeRiga(i)}
+                        className="w-full md:w-auto rounded-xl border border-neutral-200 px-3 py-2 text-sm hover:bg-neutral-50 disabled:opacity-40"
+                        disabled={saving || righe.length === 1}
+                      >
+                        Rimuovi
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={loadAll}
+                className="rounded-xl border border-neutral-200 px-4 py-2 text-sm hover:bg-neutral-50"
+                disabled={saving}
+              >
+                Aggiorna dati
+              </button>
+
+              <button
+                type="button"
+                onClick={confermaOrdine}
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                disabled={saving || loading}
+              >
+                {saving ? 'Salvataggio...' : 'Conferma ordine → Impegnate'}
+              </button>
+            </div>
+          </div>
         </div>
 
-        {msg && (
-          <div className="mt-6 rounded-xl bg-neutral-50 border border-neutral-200 px-4 py-3 text-sm text-neutral-700">
-            {msg}
-          </div>
+        {loading && (
+          <div className="mt-4 text-sm text-neutral-500">Caricamento dati...</div>
         )}
-
-        <section className="mt-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <label className="block text-sm font-medium text-neutral-700">Cliente</label>
-          <select
-            value={clienteId}
-            onChange={(e) => setClienteId(e.target.value)}
-            className="mt-2 w-full rounded-xl border border-neutral-200 px-4 py-3 outline-none focus:ring-2 focus:ring-teal-200 bg-white"
-          >
-            <option value="">Seleziona cliente…</option>
-            {clienti.map((c) => (
-              <option key={c.id} value={c.id}>{c.nome}</option>
-            ))}
-          </select>
-        </section>
-
-        <section className="mt-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="text-lg font-semibold">Righe ordine</h2>
-            <button
-              onClick={addRiga}
-              className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-semibold hover:bg-neutral-50"
-            >
-              + Aggiungi riga
-            </button>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {righe.map((r, idx) => (
-              <div key={idx} className="rounded-2xl border border-neutral-200 p-4">
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_140px_auto] gap-3 items-end">
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700">Articolo</label>
-                    <select
-                      value={r.articolo_id}
-                      onChange={(e) => setRiga(idx, { articolo_id: e.target.value })}
-                      className="mt-2 w-full rounded-xl border border-neutral-200 px-4 py-3 outline-none focus:ring-2 focus:ring-teal-200 bg-white"
-                    >
-                      <option value="">Seleziona articolo…</option>
-                      {articoli.map((a) => (
-                        <option key={a.id} value={a.id}>{labelArticolo(a)}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700">Scatole</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={r.scatole}
-                      onChange={(e) => setRiga(idx, { scatole: Number(e.target.value) || 1 })}
-                      className="mt-2 w-full rounded-xl border border-neutral-200 px-4 py-3 outline-none focus:ring-2 focus:ring-teal-200"
-                    />
-                  </div>
-
-                  <button
-                    onClick={() => removeRiga(idx)}
-                    disabled={righe.length === 1}
-                    className={[
-                      'rounded-xl px-4 py-3 text-sm font-semibold transition',
-                      righe.length === 1 ? 'bg-neutral-100 text-neutral-400' : 'border border-neutral-200 hover:bg-neutral-50'
-                    ].join(' ')}
-                  >
-                    Rimuovi
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-5 flex items-center justify-end">
-            <button
-              onClick={confermaOrdine}
-              disabled={!canConfirm || loading}
-              className={[
-                'rounded-xl px-6 py-3 font-semibold transition',
-                (!canConfirm || loading) ? 'bg-neutral-100 text-neutral-400' : 'bg-teal-600 text-white hover:bg-teal-700'
-              ].join(' ')}
-            >
-              Conferma ordine
-            </button>
-          </div>
-        </section>
-
-        <p className="mt-6 text-xs text-neutral-500">
-          Nota: se dropdown vuoti, significa che <span className="font-semibold">clienti</span> o <span className="font-semibold">articoli</span> sono vuoti o che le env vars su Vercel non combaciano.
-        </p>
-      </main>
-    </>
+      </div>
+    </main>
   );
 }

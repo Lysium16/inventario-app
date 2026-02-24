@@ -1,100 +1,103 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import TopNav from "../components/TopNav";
-import { supabase } from "../../lib/supabaseClient";
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabaseClient';
 
 type Row = {
   id: string;
-  scatole: number;
+  stato: string | null;
+  created_at: string | null;
   completed_at: string | null;
-  clienti_nome: string | null;
-  articolo_codice: string | null;
-  articolo_desc: string | null;
+  cliente?: { id: string; nome: string } | null;
 };
 
 export default function CompletatePage() {
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(false);
 
   async function load() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("ordini_righe")
-      .select(`
-        id, scatole, stato, completed_at,
-        articoli:articolo_id ( codice, descrizione ),
-        ordini:ordine_id ( cliente_id ),
-        clienti:ordini(cliente_id) ( nome )
-      `)
-      .eq("stato", "COMPLETATO")
-      .order("completed_at", { ascending: false });
+    setErr(null);
+    try {
+      const { data, error } = await supabase
+        .from('ordini')
+        .select(`
+          id, stato, created_at, completed_at,
+          clienti:cliente_id ( id, nome )
+        `)
+        .eq('stato', 'COMPLETATO')
+        .order('completed_at', { ascending: false });
 
-    setLoading(false);
-    if (error) {
-      console.error(error);
-      return;
+      if (error) throw error;
+
+      const mapped: Row[] = (data ?? []).map((o: any) => ({
+        id: o.id,
+        stato: o.stato,
+        created_at: o.created_at,
+        completed_at: o.completed_at,
+        cliente: o.clienti ?? null,
+      }));
+
+      setRows(mapped);
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      setLoading(false);
     }
-
-    const mapped: Row[] =
-      (data ?? []).map((r: any) => ({
-        id: r.id,
-        scatole: r.scatole,
-        completed_at: r.completed_at ?? null,
-        clienti_nome: r.clienti?.nome ?? null,
-        articolo_codice: r.articoli?.codice ?? null,
-        articolo_desc: r.articoli?.descrizione ?? null,
-      })) ?? [];
-
-    setRows(mapped);
   }
 
   useEffect(() => { load(); }, []);
 
   return (
-    <>
-      <TopNav activePath="/completate" />
-      <main className="db-page">
-        <div className="db-card">
-          <div className="db-card__hd">
-            <div>
-              <h1 style={{ margin: 0 }}>Completate</h1>
-              <div className="db-muted">Storico righe completate (stock scalato automaticamente).</div>
-            </div>
-            <button className="db-btn" onClick={load} disabled={loading}>Aggiorna</button>
-          </div>
+    <main className="mx-auto max-w-6xl p-6">
+      <header className="mb-6">
+        <h1 className="text-2xl font-semibold">Completate</h1>
+        <p className="text-sm text-neutral-500 mt-1">
+          Storico ordini completati.
+        </p>
+      </header>
 
-          <div className="db-card__bd">
-            {rows.length === 0 ? (
-              <div className="db-muted">Nessuna riga completata.</div>
-            ) : (
-              <table className="db-table">
-                <thead>
-                  <tr>
-                    <th>Cliente</th>
-                    <th>Articolo</th>
-                    <th>Scatole</th>
-                    <th>Completato il</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id}>
-                      <td>{r.clienti_nome ?? <span className="db-muted">-</span>}</td>
-                      <td>
-                        <div style={{ fontWeight: 700 }}>{r.articolo_codice ?? "-"}</div>
-                        <div className="db-muted">{r.articolo_desc ?? ""}</div>
-                      </td>
-                      <td style={{ fontWeight: 800 }}>{r.scatole}</td>
-                      <td className="db-muted">{r.completed_at ? new Date(r.completed_at).toLocaleString() : "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+      {err && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {err}
         </div>
-      </main>
-    </>
+      )}
+
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-sm text-neutral-600">Totale: <b>{rows.length}</b></div>
+        <button
+          className="rounded-xl border border-neutral-200 px-4 py-2 text-sm hover:bg-neutral-50"
+          onClick={load}
+          disabled={loading}
+        >
+          Aggiorna
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-sm text-neutral-500">Caricamento...</div>
+      ) : rows.length === 0 ? (
+        <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600">
+          Nessun ordine completato (per ora).
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {rows.map(r => (
+            <div key={r.id} className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+              <div className="font-semibold">
+                {r.cliente?.nome ?? 'Cliente sconosciuto'}{' '}
+                <span className="text-neutral-400 font-normal">·</span>{' '}
+                <span className="text-sm text-neutral-500">Ordine {r.id.slice(0, 8)}</span>
+              </div>
+              <div className="text-xs text-neutral-500 mt-1">
+                Creato: {r.created_at ? new Date(r.created_at).toLocaleString() : '—'} ·
+                Completato: {r.completed_at ? new Date(r.completed_at).toLocaleString() : '—'}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </main>
   );
 }
