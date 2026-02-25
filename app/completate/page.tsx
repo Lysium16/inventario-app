@@ -1,103 +1,67 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
-
-type Row = {
-  id: string;
-  stato: string | null;
-  created_at: string | null;
-  completed_at: string | null;
-  cliente?: { id: string; nome: string } | null;
-};
+import { useEffect, useMemo, useState } from 'react';
+import { getSupabase } from '../../lib/supabaseClient';
 
 export default function CompletatePage() {
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-  const [rows, setRows] = useState<Row[]>([]);
+  const sb = useMemo(() => getSupabase(), []);
+  const [err, setErr] = useState('');
+  const [righe, setRighe] = useState<any[]>([]);
 
   async function load() {
-    setLoading(true);
-    setErr(null);
-    try {
-      const { data, error } = await supabase
-        .from('ordini')
-        .select(`
-          id, stato, created_at, completed_at,
-          clienti:cliente_id ( id, nome )
-        `)
-        .eq('stato', 'COMPLETATO')
-        .order('completed_at', { ascending: false });
+    setErr('');
+    const q = await sb
+      .from('ordini_righe')
+      .select('id,ordine_id,scatole,completed_at, clienti:clienti(id,nome), articoli:articoli(id,cod_articolo,descrizione)')
+      .eq('stato', 'COMPLETATO')
+      .order('completed_at', { ascending: false });
 
-      if (error) throw error;
-
-      const mapped: Row[] = (data ?? []).map((o: any) => ({
-        id: o.id,
-        stato: o.stato,
-        created_at: o.created_at,
-        completed_at: o.completed_at,
-        cliente: o.clienti ?? null,
-      }));
-
-      setRows(mapped);
-    } catch (e: any) {
-      setErr(e?.message ?? String(e));
-    } finally {
-      setLoading(false);
-    }
+    if (q.error) return setErr(q.error.message);
+    setRighe((q.data as any[]) || []);
   }
 
   useEffect(() => { load(); }, []);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold">Completate</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          Storico ordini completati.
-        </p>
-      </header>
+      <h1 className="text-2xl font-extrabold">Completate</h1>
+      <p className="text-slate-600 mt-1">Storico righe completate.</p>
 
-      {err && (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {err}
-        </div>
-      )}
+      {err && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{err}</div>}
 
-      <div className="flex items-center justify-between mb-4">
-        <div className="text-sm text-neutral-600">Totale: <b>{rows.length}</b></div>
-        <button
-          className="rounded-xl border border-neutral-200 px-4 py-2 text-sm hover:bg-neutral-50"
-          onClick={load}
-          disabled={loading}
-        >
+      <div className="mt-6 flex items-center gap-3">
+        <button className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold hover:border-slate-300" onClick={load}>
           Aggiorna
         </button>
+        <div className="ml-auto text-sm text-slate-600">Righe: {righe.length}</div>
       </div>
 
-      {loading ? (
-        <div className="text-sm text-neutral-500">Caricamento...</div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600">
-          Nessun ordine completato (per ora).
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {rows.map(r => (
-            <div key={r.id} className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <div className="font-semibold">
-                {r.cliente?.nome ?? 'Cliente sconosciuto'}{' '}
-                <span className="text-neutral-400 font-normal">·</span>{' '}
-                <span className="text-sm text-neutral-500">Ordine {r.id.slice(0, 8)}</span>
-              </div>
-              <div className="text-xs text-neutral-500 mt-1">
-                Creato: {r.created_at ? new Date(r.created_at).toLocaleString() : '—'} ·
-                Completato: {r.completed_at ? new Date(r.completed_at).toLocaleString() : '—'}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+        {righe.length === 0 ? (
+          <div className="p-6 text-slate-600">Nessuna riga completata ancora.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="border-b border-slate-200 bg-slate-50">
+              <tr>
+                <th className="p-3 text-left">Data</th>
+                <th className="p-3 text-left">Cliente</th>
+                <th className="p-3 text-left">Articolo</th>
+                <th className="p-3 text-right">Scatole</th>
+              </tr>
+            </thead>
+            <tbody>
+              {righe.map(r => (
+                <tr key={r.id} className="border-b border-slate-100">
+                  <td className="p-3">{r.completed_at ? new Date(r.completed_at).toLocaleString() : '—'}</td>
+                  <td className="p-3">{r.clienti ? r.clienti.nome : '—'}</td>
+                  <td className="p-3">{r.articoli ? (r.articoli.cod_articolo + ' - ' + r.articoli.descrizione) : '—'}</td>
+                  <td className="p-3 text-right font-bold">{r.scatole}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </main>
   );
 }

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -691,7 +691,8 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-900">
-<div style={{ marginTop: 12, marginBottom: 12 }}><a href="/ordini" style={{ textDecoration: "underline" }}>Ordini</a></div>
+<div style={{ marginTop: 12, marginBottom: 12 }}>
+</div>
 
       <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">

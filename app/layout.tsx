@@ -7,7 +7,7 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // activePath lo ricaviamo lato client nelle pagine; qui mettiamo una topbar ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œneutraÃƒÂ¢Ã¢â€šÂ¬Ã‚Â.
+  // activePath lo ricaviamo lato client nelle pagine; qui mettiamo una topbar ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“neutraÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â.
   // Le pagine passano activePath con un wrapper semplice.
   return (
     <html lang="it">
