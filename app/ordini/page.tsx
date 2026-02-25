@@ -42,7 +42,7 @@ export default function OrdiniClientiPage() {
     setErr(''); setOk('');
 
     // clienti: SOLO id,nome (niente created_at inventati)
-    const qc = await sb.from('clienti').select('id,nome').order('nome', { ascending: true });
+    const qc = await sb.from('clienti').select('id,nome,attivo').eq('attivo', true).order('nome', { ascending: true });
     if (qc.error) return setErr(qc.error.message);
     setClienti(qc.data || []);
 
@@ -81,7 +81,7 @@ export default function OrdiniClientiPage() {
     if (o.error) return setErr(o.error.message);
     const ordineId = o.data.id as string;
 
-    // 2) crea righe già IMPEGNATO
+    // 2) crea righe giÃ  IMPEGNATO
     const ins = await sb.from('ordini_righe').insert(
       clean.map(r => ({
         ordine_id: ordineId,
@@ -120,7 +120,7 @@ export default function OrdiniClientiPage() {
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-2xl font-extrabold">Ordini clienti</h1>
-      <p className="mt-1 text-slate-600">Quando confermi, l’ordine va direttamente nelle <b>Impegnate</b>.</p>
+      <p className="mt-1 text-slate-600">Quando confermi, lâ€™ordine va direttamente nelle <b>Impegnate</b>.</p>
 
       {err && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{err}</div>}
       {ok  && <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">{ok}</div>}
@@ -191,7 +191,7 @@ export default function OrdiniClientiPage() {
               Aggiorna dati
             </button>
             <button onClick={conferma} className="rounded-xl bg-teal-600 px-5 py-3 text-sm font-extrabold text-white hover:bg-teal-700">
-              Conferma ordine → Impegnate
+              Conferma ordine â†’ Impegnate
             </button>
           </div>
         </div>
