@@ -12,12 +12,12 @@ export default function CompletatePage() {
     setErr('');
     const q = await sb
       .from('ordini_righe')
-      .select('id,ordine_id,scatole,completed_at, clienti:clienti(id,nome), articoli:articoli(id,cod_articolo,descrizione)')
+      .select('id,scatole,completed_at, ordini:ordini(id, clienti:clienti(id,nome)), articoli:articoli(id,cod_articolo,descrizione)')
       .eq('stato', 'COMPLETATO')
       .order('completed_at', { ascending: false });
 
     if (q.error) return setErr(q.error.message);
-    setRighe((q.data as any[]) || []);
+    setRighe(q.data || []);
   }
 
   useEffect(() => { load(); }, []);
@@ -25,7 +25,7 @@ export default function CompletatePage() {
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-2xl font-extrabold">Completate</h1>
-      <p className="text-slate-600 mt-1">Storico righe completate.</p>
+      <p className="mt-1 text-slate-600">Storico righe completate.</p>
 
       {err && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{err}</div>}
 
@@ -53,7 +53,7 @@ export default function CompletatePage() {
               {righe.map(r => (
                 <tr key={r.id} className="border-b border-slate-100">
                   <td className="p-3">{r.completed_at ? new Date(r.completed_at).toLocaleString() : '—'}</td>
-                  <td className="p-3">{r.clienti ? r.clienti.nome : '—'}</td>
+                  <td className="p-3">{r.ordini?.clienti?.nome || '—'}</td>
                   <td className="p-3">{r.articoli ? (r.articoli.cod_articolo + ' - ' + r.articoli.descrizione) : '—'}</td>
                   <td className="p-3 text-right font-bold">{r.scatole}</td>
                 </tr>

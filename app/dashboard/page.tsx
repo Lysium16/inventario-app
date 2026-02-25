@@ -13,12 +13,12 @@ export default function DashboardPage() {
     setErr('');
     const q = await sb
       .from('ordini_righe')
-      .select('id,ordine_id,articolo_id,scatole,stato,created_at, clienti:clienti(id,nome), articoli:articoli(id,cod_articolo,descrizione)')
+      .select('id,ordine_id,articolo_id,scatole,stato, created_at, ordini:ordini(id,cliente_id, clienti:clienti(id,nome)), articoli:articoli(id,cod_articolo,descrizione)')
       .eq('stato', 'IMPEGNATO')
       .order('created_at', { ascending: false });
 
     if (q.error) return setErr(q.error.message);
-    setRighe((q.data as any[]) || []);
+    setRighe(q.data || []);
     setSel({});
   }
 
@@ -27,12 +27,38 @@ export default function DashboardPage() {
     const ids = Object.keys(sel).filter(k => sel[k]);
     if (ids.length === 0) return;
 
-    // 1) segna righe completate
-    const up = await sb.from('ordini_righe').update({ stato: 'COMPLETATO', completed_at: new Date().toISOString() }).in('id', ids);
-    if (up.error) return setErr(up.error.message);
+    // carica righe selezionate (per scalare stock)
+    const q = await sb
+      .from('ordini_righe')
+      .select('id,ordine_id,articolo_id,scatole')
+      .in('id', ids);
 
-    // 2) se per un ordine non restano righe non completate, completa anche l’ordine
-    const ordIds = Array.from(new Set(righe.filter(r => ids.includes(r.id)).map(r => r.ordine_id)));
+    if (q.error) return setErr(q.error.message);
+
+    const rows = q.data || [];
+
+    // scala stock articolo per articolo
+    for (const r of rows) {
+      const cur = await sb.from('articoli').select('id,magazzino,impegnate,scatole_impegnate').eq('id', r.articolo_id).single();
+      if (cur.error) return setErr(cur.error.message);
+
+      const mag = Math.max(0, Number(cur.data?.magazzino || 0) - Number(r.scatole || 0));
+      const imp = Math.max(0, Number(cur.data?.impegnate || 0) - Number(r.scatole || 0));
+      const sim = Math.max(0, Number(cur.data?.scatole_impegnate || 0) - Number(r.scatole || 0));
+
+      const up = await sb.from('articoli').update({ magazzino: mag, impegnate: imp, scatole_impegnate: sim }).eq('id', r.articolo_id);
+      if (up.error) return setErr(up.error.message);
+    }
+
+    // marca righe completate
+    const done = await sb.from('ordini_righe')
+      .update({ stato: 'COMPLETATO', completed_at: new Date().toISOString() })
+      .in('id', ids);
+
+    if (done.error) return setErr(done.error.message);
+
+    // se un ordine non ha più righe non completate => ordine completato
+    const ordIds = Array.from(new Set(rows.map(r => r.ordine_id)));
     for (const oid of ordIds) {
       const left = await sb.from('ordini_righe').select('id').eq('ordine_id', oid).neq('stato', 'COMPLETATO').limit(1);
       if (left.error) return setErr(left.error.message);
@@ -50,7 +76,7 @@ export default function DashboardPage() {
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-2xl font-extrabold">Dashboard</h1>
-      <p className="text-slate-600 mt-1">Qui vedi gli ordini in <b>Impegnate</b> e li puoi completare.</p>
+      <p className="mt-1 text-slate-600">Qui vedi gli ordini in <b>Impegnate</b> e li puoi completare.</p>
 
       {err && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{err}</div>}
 
@@ -76,23 +102,17 @@ export default function DashboardPage() {
                   <th className="p-3 text-left">Cliente</th>
                   <th className="p-3 text-left">Articolo</th>
                   <th className="p-3 text-right">Scatole</th>
-                  <th className="p-3 text-left">Stato</th>
                 </tr>
               </thead>
               <tbody>
                 {righe.map(r => (
                   <tr key={r.id} className="border-b border-slate-100">
                     <td className="p-3">
-                      <input
-                        type="checkbox"
-                        checked={!!sel[r.id]}
-                        onChange={(e) => setSel(s => ({ ...s, [r.id]: e.target.checked }))}
-                      />
+                      <input type="checkbox" checked={!!sel[r.id]} onChange={(e) => setSel(s => ({ ...s, [r.id]: e.target.checked }))} />
                     </td>
-                    <td className="p-3">{r.clienti ? r.clienti.nome : '—'}</td>
+                    <td className="p-3">{r.ordini?.clienti?.nome || '—'}</td>
                     <td className="p-3">{r.articoli ? (r.articoli.cod_articolo + ' - ' + r.articoli.descrizione) : '—'}</td>
                     <td className="p-3 text-right font-bold">{r.scatole}</td>
-                    <td className="p-3">{r.stato}</td>
                   </tr>
                 ))}
               </tbody>
