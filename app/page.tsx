@@ -41,7 +41,7 @@ function fmtEur(v: number) {
   try {
     return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(v || 0);
   } catch {
-    return `†â€™‚Â¢‚Â¢‚¬Å¡Ã‚Â¬¦Ã‚Â¡‚¬Å¡‚Â¬ ${(v || 0).toFixed(2)}`;
+    return `â€ ‚¬â„¢â€šÃ‚Â¢â€šÃ‚Â¢â€šÂ¬Ã…Â¡‚Â¬Â¦‚Â¡â€šÂ¬Ã…Â¡â€šÃ‚Â¬ ${(v || 0).toFixed(2)}`;
   }
 }
 
@@ -55,9 +55,9 @@ function pezziTotaliFisici(a: Articolo) {
 }
 
 function disponibili(a: Articolo) {
-  const fisiche = clampInt(safeNum(a.scatole_inventario));
-  const imp = clampInt(safeNum(a.scatole_impegnate));
-  return Math.max(0, fisiche - imp);
+  const fis = clampInt(safeNum(a.scatole_inventario ?? 0));
+  const imp = clampInt(safeNum(a.scatole_impegnate ?? 0));
+  return Math.max(0, fis - imp);
 }
 
 function statoScorta(a: any): "ok" | "basso" | "critico" {
@@ -69,7 +69,7 @@ function statoScorta(a: any): "ok" | "basso" | "critico" {
   const min = clampInt(safeNum(a?.scorta_minima ?? 0));
   if (min <= 0) return "ok";
 
-  // soglia verde = min + met†â€™ ‚¬â„¢‚¬Å¡‚Â (min) (arrotondata su)
+  // soglia verde = min + metâ€ ‚¬â„¢Â â€šÂ¬…Â¡â€šÃ‚Â (min) (arrotondata su)
   const half = Math.ceil(min / 2);
   const green = min + half;
 
@@ -168,7 +168,7 @@ async function confermaOrdine2(
     // 1) PDF
     exportOrdinePdf(articoli, carrello);
 
-    // 2) Sposta in ARRIVI (in_arrivo += qta_ordinate) - carrello †â€™ ‚¬â„¢‚¬Å¡‚Â¨ in scatole
+    // 2) Sposta in ARRIVI (in_arrivo += qta_ordinate) - carrello â€ ‚¬â„¢Â â€šÂ¬…Â¡â€šÃ‚Â¨ in scatole
     const ids = Object.keys(carrello || {});
     for (const id of ids) {
       const qta = clampInt(Number((carrello as any)[id]));
@@ -207,7 +207,7 @@ async function confermaOrdine(
   // 1) PDF
   exportOrdinePdf(articoli, carrello);
 
-  // 2) Sposta in ARRIVI (in_arrivo += qta_ordinate) - carrello †â€™ ‚¬â„¢‚¬Å¡‚Â¨ in scatole
+  // 2) Sposta in ARRIVI (in_arrivo += qta_ordinate) - carrello â€ ‚¬â„¢Â â€šÂ¬…Â¡â€šÃ‚Â¨ in scatole
   const ids = Object.keys(carrello || {});
   for (const id of ids) {
     const qta = clampInt(Number((carrello as any)[id]));
@@ -387,7 +387,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
     if (tab === "magazzino") return `${criticiCount} articoli critici`;
     if (tab === "ordini") return `Totale ordine: ${fmtEur(totaleCarrello())}`;
     if (tab === "arrivi") return `In arrivo: ${inArrivoTot()} scatole`;
-    return "Solo per te: numeri e priorit†â€™ ‚¬â„¢‚¬Å¡‚Â ";
+    return "Solo per te: numeri e prioritâ€ ‚¬â„¢Â â€šÂ¬…Â¡â€šÃ‚Â ";
   }
 
   async function updateSelected(patch: Partial<Articolo>) {
@@ -413,7 +413,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
     if (!selected) return;
 
     const n = clampInt(parseInt(deltaFisico, 10));
-    if (!Number.isFinite(n) || n <= 0) return alert("Inserisci una quantit†â€™ ‚¬â„¢‚¬Å¡‚Â  valida.");
+    if (!Number.isFinite(n) || n <= 0) return alert("Inserisci una quantitâ€ ‚¬â„¢Â â€šÂ¬…Â¡â€šÃ‚Â  valida.");
 
     const current = clampInt(safeNum(selected.scatole_inventario));
     const next = sign === "+" ? current + n : current - n;
@@ -434,7 +434,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
     if (!selected) return;
 
     const n = clampInt(parseInt(deltaImp, 10));
-    if (!Number.isFinite(n) || n <= 0) return alert("Inserisci una quantit†â€™ ‚¬â„¢‚¬Å¡‚Â  valida.");
+    if (!Number.isFinite(n) || n <= 0) return alert("Inserisci una quantitâ€ ‚¬â„¢Â â€šÂ¬…Â¡â€šÃ‚Â  valida.");
 
     const current = clampInt(safeNum(selected.scatole_impegnate ?? 0));
     const next = sign === "+" ? current + n : current - n;
@@ -488,7 +488,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
       const inArr = clampInt(safeNum(a.in_arrivo ?? 0));
       const target = obj;
 
-      // quante scatole servono per tornare all'obiettivo considerando gi†â€™ ‚¬â„¢‚¬Å¡‚Â  in arrivo
+      // quante scatole servono per tornare all'obiettivo considerando giâ€ ‚¬â„¢Â â€šÂ¬…Â¡â€šÃ‚Â  in arrivo
       const need = Math.max(0, target - (disp + inArr));
       if (need > 0) list.push({ a, qta: need });
     }
@@ -597,11 +597,11 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
         const pzPerScatola = clampInt(safeNum((a as any).pz_per_scatola ?? 1));
         const mag = clampInt(safeNum((a as any).magazzino ?? 0));
-        const deltaPz = qta * (pzPerScatola > 0 ? pzPerScatola : 1);if (qta > imp) throw new Error("Quantit†â€™ ‚¬â„¢‚¬Â †â€™…Â¡‚¬Å¡‚Â  superiore alle impegnate.");
-        if (qta > inv) throw new Error("Quantit†â€™ ‚¬â„¢‚¬Â †â€™…Â¡‚¬Å¡‚Â  superiore al fisico.");
+        const deltaPz = qta * (pzPerScatola > 0 ? pzPerScatola : 1);if (qta > imp) throw new Error("Quantitâ€ ‚¬â„¢Â â€šÂ¬‚Â â€ ‚¬â„¢â€¦Ã‚Â¡â€šÂ¬Ã…Â¡â€šÃ‚Â  superiore alle impegnate.");
+        if (qta > inv) throw new Error("Quantitâ€ ‚¬â„¢Â â€šÂ¬‚Â â€ ‚¬â„¢â€¦Ã‚Â¡â€šÂ¬Ã…Â¡â€šÃ‚Â  superiore al fisico.");
 
         
-        if (deltaPz > mag) throw new Error("QuantitÃ  superiore al magazzino (pezzi).");const { error } = await supabase
+        if (deltaPz > mag) throw new Error("Quantit  superiore al magazzino (pezzi).");const { error } = await supabase
           .from("articoli")
           .update({
             scatole_impegnate: imp - qta,
@@ -846,7 +846,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <div className="text-xs text-neutral-600">
-                  Modalit†â€™ ‚¬â„¢‚¬Å¡‚Â  semplice: mostra solo disponibilit†â€™ ‚¬â„¢‚¬Å¡‚Â  e pulsanti essenziali.
+                  Modalitâ€ ‚¬â„¢Â â€šÂ¬…Â¡â€šÃ‚Â  semplice: mostra solo disponibilitâ€ ‚¬â„¢Â â€šÂ¬…Â¡â€šÃ‚Â  e pulsanti essenziali.
                 </div>
                 <button
                   onClick={() => { setSimpleView((v) => !v); setShowAdvanced(true); }}
@@ -1062,7 +1062,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                         />
                       </div>
                       <div>
-                        <div className="text-xs text-neutral-500">Costo †â€™‚Â¢‚Â¢‚¬Å¡Ã‚Â¬¦Ã‚Â¡‚¬Å¡‚Â¬/scatola</div>
+                        <div className="text-xs text-neutral-500">Costo â€ ‚¬â„¢â€šÃ‚Â¢â€šÃ‚Â¢â€šÂ¬Ã…Â¡‚Â¬Â¦‚Â¡â€šÂ¬Ã…Â¡â€šÃ‚Â¬/scatola</div>
                         <input
                           inputMode="decimal"
                           value={String(detForm?.prezzo_costo ?? "")}
@@ -1158,7 +1158,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                         onClick={() => applyDeltaFisico("-")}
                         className="rounded-2xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm active:scale-[0.99]"
                       >
-                        †â€™‚Â¢‚Â¢‚¬Å¡Ã‚Â¬‚Â ‚Â¢‚¬Å¡Ã‚Â¬‚¬Å¾Ã‚Â¢ Scarico
+                        â€ ‚¬â„¢â€šÃ‚Â¢â€šÃ‚Â¢â€šÂ¬Ã…Â¡‚Â¬â€šÃ‚Â â€šÃ‚Â¢â€šÂ¬Ã…Â¡‚Â¬â€šÂ¬Ã…Â¾‚Â¢ Scarico
                       </button>
                     </div>
                   </div>
@@ -1184,7 +1184,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                         onClick={() => applyDeltaImpegnate("-")}
                         className="rounded-2xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm active:scale-[0.99]"
                       >
-                        †â€™‚Â¢‚Â¢‚¬Å¡Ã‚Â¬‚Â ‚Â¢‚¬Å¡Ã‚Â¬‚¬Å¾Ã‚Â¢ Applica
+                        â€ ‚¬â„¢â€šÃ‚Â¢â€šÃ‚Â¢â€šÂ¬Ã…Â¡‚Â¬â€šÃ‚Â â€šÃ‚Â¢â€šÂ¬Ã…Â¡‚Â¬â€šÂ¬Ã…Â¾‚Â¢ Applica
                       </button>
                     </div>
                   </div>
@@ -1212,7 +1212,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
               {suggeriti.length === 0 ? (
                 <p className="text-sm text-neutral-500">
-                  Nessun suggerimento (serve impostare una †â€™‚Â¢‚Â¢…Â¡‚Â¬‚¬Â¦…â€œscorta obiettivo negli articoli).
+                  Nessun suggerimento (serve impostare una â€ ‚¬â„¢â€šÃ‚Â¢â€šÃ‚Â¢â€¦Ã‚Â¡â€šÃ‚Â¬â€šÂ¬Ã‚Â¦â€¦‚¬Å“scorta obiettivo negli articoli).
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -1241,7 +1241,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                           className="rounded-2xl px-3 py-2 text-sm font-semibold text-white shadow-sm"
                           style={{ backgroundColor: ACCENT }}
                         >
-                          Aggiungi all†â€™‚Â¢‚Â¢…Â¡‚Â¬‚Â¢…Â¾‚Â¢ordine
+                          Aggiungi allâ€ ‚¬â„¢â€šÃ‚Â¢â€šÃ‚Â¢â€¦Ã‚Â¡â€šÃ‚Â¬â€šÃ‚Â¢â€¦Ã‚Â¾â€šÃ‚Â¢ordine
                         </button>
                       </div>
                     </div>
@@ -1284,14 +1284,14 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
                       <div className="mt-3 flex items-center justify-between gap-2">
                         <div className="text-xs text-neutral-500">
-                          Modifica quantit†â€™ ‚¬â„¢‚¬Å¡‚Â  (scatole)
+                          Modifica quantitâ€ ‚¬â„¢Â â€šÂ¬…Â¡â€šÃ‚Â  (scatole)
                         </div>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => setCarrelloQty(a.id, qta - 1)}
                             className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold"
                           >
-                            †â€™‚Â¢‚Â¢‚¬Å¡Ã‚Â¬‚Â ‚Â¢‚¬Å¡Ã‚Â¬‚¬Å¾Ã‚Â¢
+                            â€ ‚¬â„¢â€šÃ‚Â¢â€šÃ‚Â¢â€šÂ¬Ã…Â¡‚Â¬â€šÃ‚Â â€šÃ‚Â¢â€šÂ¬Ã…Â¡‚Â¬â€šÂ¬Ã…Â¾‚Â¢
                           </button>
                           <div className="min-w-[48px] text-center text-sm font-semibold">{qta}</div>
                           <button
@@ -1341,7 +1341,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
             <p className="text-sm text-neutral-500">
               Qui segni quante scatole sono <span className="font-semibold">in arrivo</span>. Quando arrivano, premi
-              †â€™‚Â¢‚Â¢…Â¡‚Â¬‚¬Â¦…â€œSegna arrivato: le sposta nel fisico da sola.
+              â€ ‚¬â„¢â€šÃ‚Â¢â€šÃ‚Â¢â€¦Ã‚Â¡â€šÃ‚Â¬â€šÂ¬Ã‚Â¦â€¦‚¬Å“Segna arrivato: le sposta nel fisico da sola.
             </p>
 
             <div className="mt-4 space-y-2">
@@ -1447,7 +1447,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
                             <div className="text-sm font-semibold">{a.descrizione}</div>
                             <div className="text-xs text-neutral-500">{a.cod_articolo}</div>
                             <div className="mt-1 text-xs text-neutral-500">
-                              Impegnate: <span className="font-semibold">{max}</span> †â€™‚Â¢‚Â¢…Â¡‚Â¬‚¬Å¡‚Â¢ Fisico: {clampInt(safeNum(a.scatole_inventario))}
+                              Impegnate: <span className="font-semibold">{max}</span> â€ ‚¬â„¢â€šÃ‚Â¢â€šÃ‚Â¢â€¦Ã‚Â¡â€šÃ‚Â¬â€šÂ¬Ã…Â¡â€šÃ‚Â¢ Fisico: {clampInt(safeNum(a.scatole_inventario))}
                             </div>
                           </div>
                         </div>
@@ -1494,7 +1494,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
           <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold">Dashboard</h2>
-              <div className="text-xs text-neutral-500">Numeri e priorit†â€™ ‚¬â„¢‚¬Å¡‚Â  (senza fronzoli, ma con stile)</div>
+              <div className="text-xs text-neutral-500">Numeri e prioritâ€ ‚¬â„¢Â â€šÂ¬…Â¡â€šÃ‚Â  (senza fronzoli, ma con stile)</div>
             </div>
 
             <div className="grid gap-2 md:grid-cols-3">
