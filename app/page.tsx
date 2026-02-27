@@ -580,47 +580,53 @@ const [tab, setTab] = useState<Tab>("magazzino");
 
 
   async function segnaCompletate() {
-    if (completeBusy) return;
-    setCompleteBusy(true);
-    try {
-      for (const [id, qty] of Object.entries(selectedCompletate || {})) {
-        const qta = clampInt(Number(qty));
-        if (qta <= 0) continue;
+  if (completeBusy) return;
+  setCompleteBusy(true);
+  try {
+    for (const [id, qty] of Object.entries(selectedCompletate || {})) {
+      const qta = clampInt(Number(qty));
+      if (qta <= 0) continue;
 
-        const a = articoli.find(x => x.id === id);
-        if (!a) continue;
+      const a = articoli.find(x => x.id === id);
+      if (!a) continue;
 
-        const imp = clampInt(safeNum(a.scatole_impegnate ?? 0));
-        const inv = clampInt(safeNum(a.scatole_inventario ?? 0));
+      const imp = clampInt(safeNum(a.scatole_impegnate ?? 0));
+      const inv = clampInt(safeNum(a.scatole_inventario ?? 0));
 
-        
+      if (qta > imp) throw new Error("Quantità superiore alle impegnate.");
+      if (qta > inv) throw new Error("Quantità superiore al fisico (magazzino in scatole).");
 
-        const pzPerScatola = clampInt(safeNum((a as any).pz_per_scatola ?? 1));
-        const mag = clampInt(safeNum((a as any).magazzino ?? 0));
-        const deltaPz = qta * (pzPerScatola > 0 ? pzPerScatola : 1);if (qta > imp) throw new Error("Quantitâ€ ‚¬â„¢Â â€šÂ¬‚Â â€ ‚¬â„¢â€¦Ã‚Â¡â€šÂ¬Ã…Â¡â€šÃ‚Â  superiore alle impegnate.");
-        if (qta > inv) throw new Error("Quantitâ€ ‚¬â„¢Â â€šÂ¬‚Â â€ ‚¬â„¢â€¦Ã‚Â¡â€šÂ¬Ã…Â¡â€šÃ‚Â  superiore al fisico.");
+      const pzPerScatola = Math.max(1, clampInt(safeNum((a as any).pz_per_scatola ?? 1)));
+      const curMag = clampInt(safeNum((a as any).magazzino ?? 0));
+      const deltaPz = qta * pzPerScatola;
 
-        
-        if (deltaPz > mag) throw new Error("Quantit  superiore al magazzino (pezzi).");const { error } = await supabase
-          .from("articoli")
-          .update({
-            scatole_impegnate: imp - qta,
-            scatole_inventario: inv - qta,
-})
-          .eq("id", id);
+      if (deltaPz > curMag) throw new Error("Quantità superiore al magazzino (pezzi).");
 
-        if (error) throw error;
-      }
+      const nextImp = imp - qta;
+      const nextInv = inv - qta;
+      const nextMag = Math.max(0, curMag - deltaPz);
 
-      setSelectedCompletate({});
-      await loadArticoli();
-    } catch (e: any) {
-      console.error(e);
-      alert("Errore durante il completamento lavorazioni: " + (e?.message ?? String(e)));
-    } finally {
-      setCompleteBusy(false);
+      const { error } = await supabase
+        .from("articoli")
+        .update({
+          scatole_impegnate: nextImp,
+          scatole_inventario: nextInv,
+          magazzino: nextMag
+        })
+        .eq("id", id);
+
+      if (error) throw error;
     }
+
+    setSelectedCompletate({});
+    await loadArticoli();
+  } catch (e: any) {
+    console.error(e);
+    alert("Errore durante il completamento lavorazioni: " + (e?.message ?? String(e)));
+  } finally {
+    setCompleteBusy(false);
   }
+}
   // ===== UI =====
   function TopTabs() {
     const hasArrivi = (articoli || []).some(
