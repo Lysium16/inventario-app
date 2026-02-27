@@ -594,25 +594,25 @@ const [tab, setTab] = useState<Tab>("magazzino");
       const inv = clampInt(safeNum(a.scatole_inventario ?? 0));
 
       if (qta > imp) throw new Error("Quantità superiore alle impegnate.");
-      if (qta > inv) throw new Error("Quantità superiore al fisico (magazzino in scatole).");
+      if (qta > inv) throw new Error("Quantità superiore al fisico (magazzino).");
 
-      const pzPerScatola = Math.max(1, clampInt(safeNum((a as any).pz_per_scatola ?? 1)));
-      const curMag = clampInt(safeNum((a as any).magazzino ?? 0));
-      const deltaPz = qta * pzPerScatola;
+      const payload: any = {
+        scatole_impegnate: imp - qta,
+        scatole_inventario: inv - qta,
+      };
 
-      if (deltaPz > curMag) throw new Error("Quantità superiore al magazzino (pezzi).");
-
-      const nextImp = imp - qta;
-      const nextInv = inv - qta;
-      const nextMag = Math.max(0, curMag - deltaPz);
+      // opzionale: se esiste la colonna magazzino (pezzi), la teniamo coerente senza fare il talebano
+      const pzPerScatola = clampInt(safeNum((a as any).pz_per_scatola ?? 1));
+      const mag = (a as any).magazzino;
+      if (mag !== undefined && mag !== null) {
+        const curMag = clampInt(safeNum(mag));
+        const deltaPz = qta * (pzPerScatola > 0 ? pzPerScatola : 1);
+        payload.magazzino = Math.max(0, curMag - deltaPz);
+      }
 
       const { error } = await supabase
         .from("articoli")
-        .update({
-          scatole_impegnate: nextImp,
-          scatole_inventario: nextInv,
-          magazzino: nextMag
-        })
+        .update(payload)
         .eq("id", id);
 
       if (error) throw error;
@@ -627,7 +627,7 @@ const [tab, setTab] = useState<Tab>("magazzino");
     setCompleteBusy(false);
   }
 }
-  // ===== UI =====
+// ===== UI =====
   function TopTabs() {
     const hasArrivi = (articoli || []).some(
       (a) => clampInt(safeNum((a as any)?.in_arrivo ?? 0)) > 0
